@@ -39,6 +39,6 @@ endif
 	$(P) printf "[\033[032m CC \033[0m] $@\n"
 	$(Q) $(CC) $(CFLAGS) -o $@ -c $<
 
-%.o: %.S
+%.Os: %.S
 	$(P) printf "[\033[032m CC \033[0m] $@\n"
 	$(Q) $(CC) $(CFLAGS) -o $@ -c $<

@@ -1,7 +1,7 @@
 MAKEFILE_COMMON = $(abspath ./makefile.common)
 include $(MAKEFILE_COMMON)
 
-DEVICE ?= STM32F10X_HD
+DEVICE ?= STM32F10X_MD
 OSC ?= 8000000
 
 WORKSPACE_DIR = $(abspath ./)
@@ -19,7 +19,7 @@ STM32_LIB_INCS += $(STM32_LIB_DIR)/Libraries/CMSIS/CM3/DeviceSupport/ST/STM32F10
 STM32_LIB_NAME = kstm32
 STM32_LIB_FILE = $(WORKSPACE_DIR)/lib/lib$(STM32_LIB_NAME).a
 
-STM32_STARTUP_OBJ = $(patsubst %.S,%.o,$(wildcard $(WORKSPACE_DIR)/startup/*.S))
+STM32_STARTUP_OBJ = $(patsubst %.S,%.Os,$(wildcard $(WORKSPACE_DIR)/startup/*.S))
 
 CFLAGS += -D$(DEVICE) -DHSE_VALUE=$(OSC)
 CFLAGS += $(addprefix -I,$(STM32_LIB_INCS)) -I$(WORKSPACE_DIR)/inc
@@ -53,7 +53,7 @@ distclean:
 clean: check
 	$(Q) $(MAKE) -C "$(WORKSPACE_DIR)/src/$(PROJECT)" $@
 
-download: check
+flash: check
 	$(Q) $(MAKE) -C "$(WORKSPACE_DIR)/src/$(PROJECT)" $@
 
 
