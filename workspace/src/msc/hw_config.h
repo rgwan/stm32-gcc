@@ -51,6 +51,9 @@ void USB_Disconnect_Config(void);
 /* External variables --------------------------------------------------------*/
 #define USB_DISCONNECT GPIOA
 #define USB_DISCONNECT_PIN GPIO_Pin_8
+
+extern uint32_t Yamaha_Counter;
+extern uint8_t isYamaha;
 #endif  /*__HW_CONFIG_H*/
 
 /******************* (C) COPYRIGHT 2011 STMicroelectronics *****END OF FILE****/

@@ -28,11 +28,16 @@
 #include <stdio.h>
 #define MAIN_DEBUG 1
 extern uint16_t MAL_Init (uint8_t lun);
- void delay();
 
 void gpio_setup(void);
 
 GPIO_InitTypeDef GPIO_InitStructure;
+
+/* 当我第一次知道要做马奇诺防线的时候，其实我是，是拒绝的 */
+uint32_t Yamaha_Counter = 0;
+uint32_t clock = 0;
+uint8_t isYamaha = 0;
+
 void gpio_setup(void)
 {
 			//使能或者失能 APB2 外设时钟 //调试配置IO时钟 RCC_APB2Periph_AFIO
@@ -50,19 +55,29 @@ void gpio_setup(void)
 	GPIO_Init(GPIOB, &GPIO_InitStructure); 
 }
 
-void delay()
-{
-	int i,j=0;
-		for (j=0; j<1000000; j++)
-	for (i=0; i<1000000; i++)	;
-	
-}
-
-
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
+void SysTick_Handler(void)
+{//摩擦摩擦
+	clock++;
+	if((clock % 10) == 0)
+	{
+		dbg("Hello, Clock = %d, Yamaha Count = %d\r\n",(int) clock, (int)Yamaha_Counter);
+	}
+	if((clock == 40) && (Yamaha_Counter >= 50) && (!isYamaha))
+	{
+		isYamaha = 1;
+		GPIO_ResetBits(GPIOA, GPIO_Pin_8); // USB disconnect
+		dbg("Detected Yamaha PSR-S500 series,Disconnect USB\r\n");
+	}
+	if((clock == 60) && isYamaha)
+	{
+		GPIO_SetBits(GPIOA, GPIO_Pin_8);
+		dbg("Now repluggins the USB\r\n");
+	}
+}
 /* Extern variables ----------------------------------------------------------*/
 /* Private function prototypes -----------------------------------------------*/
 /* Private functions ---------------------------------------------------------*/
@@ -75,32 +90,29 @@ void delay()
 *******************************************************************************/
 int main(void)
 {
-
 	gpio_setup();
 	UART1_GPIO_Configuration();
 	UART1_Configuration();
-	#ifdef	MAIN_DEBUG 
+#ifdef	MAIN_DEBUG 
 	dbg("System Start\r\n");
 #endif
 	ramdisk_init();
-	Set_System();//设置USB控制脚，初始化SD卡
+	Set_System();//设置USB控制脚
 	Set_USBClock();//设置usb时钟
 	Led_Config();
 	GPIO_ResetBits(GPIOA, GPIO_Pin_8);
 	GPIO_SetBits(GPIOB, GPIO_Pin_12);
 	USB_Interrupts_Config();//设置USB优先级
-	dbg("read: offset = 0x%x, length = 0x%x\r\n",(unsigned char) offset, (unsigned char) length);
 	USB_Init();//初始化usb 包括电源，中断使能,bDeviceState=UNCONNECT
 	#ifdef	MAIN_DEBUG 
 			dbg("wait host configured\r\n");
 	#endif
 	GPIO_SetBits(GPIOA, GPIO_Pin_8);
 	while (bDeviceState != CONFIGURED);//等待??中断中设置此标志??
-	
+	SysTick_Config(9600000); /** 一秒五次，似魔鬼的步伐 **/
 
 	while (1)
 	{
-		
 	}
 
 }

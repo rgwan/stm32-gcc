@@ -146,9 +146,6 @@ void PendSV_Handler(void)
 * Output         : None
 * Return         : None
 *******************************************************************************/
-void SysTick_Handler(void)
-{
-}
 
 /******************************************************************************/
 /*            STM32F10x Peripherals Interrupt Handlers                        */
