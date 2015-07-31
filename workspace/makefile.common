@@ -7,7 +7,9 @@ CFLAGS += -mthumb -mcpu=cortex-m3 -mfix-cortex-m3-ldrd -Os -Wall -MD
 CFLAGS += -ffunction-sections -fdata-sections -fno-exceptions
 CFLAGS += -DUSE_STDPERIPH_DRIVER
 
-LDFLAGS += -mthumb -mcpu=cortex-m3 -mfix-cortex-m3-ldrd -Wl,-cref -Wl,--gc-sections
+LDFLAGS += -mthumb -mcpu=cortex-m3 -mfix-cortex-m3-ldrd -Wl,-cref -Wl,--gc-sections 
+LDFLAGS += --static
+LDFLAGS += -Wl,--start-group -lc -lgcc -lnosys -Wl,--end-group
 
 ARFLAG = cr
 
