@@ -1,9 +1,9 @@
 /******************** (C) COPYRIGHT 2011 STMicroelectronics ********************
-* File Name          : usb_desc.h
+* File Name          : usb_pwr.h
 * Author             : MCD Application Team
 * Version            : V3.3.0
 * Date               : 21-March-2011
-* Description        : Descriptor Header for Mass Storage Device
+* Description        : Connection/disconnection & power management header
 ********************************************************************************
 * THE PRESENT FIRMWARE WHICH IS FOR GUIDANCE ONLY AIMS AT PROVIDING CUSTOMERS
 * WITH CODING INFORMATION REGARDING THEIR PRODUCTS IN ORDER FOR THEM TO SAVE TIME.
@@ -12,43 +12,49 @@
 * CONTENT OF SUCH FIRMWARE AND/OR THE USE MADE BY CUSTOMERS OF THE CODING
 * INFORMATION CONTAINED HEREIN IN CONNECTION WITH THEIR PRODUCTS.
 *******************************************************************************/
-
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __USB_DESC_H
-#define __USB_DESC_H
-
+#ifndef __USB_PWR_H
+#define __USB_PWR_H
 /* Includes ------------------------------------------------------------------*/
-#ifdef STM32L1XX_MD
- #include "stm32l1xx.h"
-#else
- #include "stm32f10x.h"
-#endif /* STM32L1XX_MD */
- 
+#include "usb_core.h"
+#include "usb_type.h"
+
 /* Exported types ------------------------------------------------------------*/
+typedef enum _RESUME_STATE
+{
+  RESUME_EXTERNAL,
+  RESUME_INTERNAL,
+  RESUME_LATER,
+  RESUME_WAIT,
+  RESUME_START,
+  RESUME_ON,
+  RESUME_OFF,
+  RESUME_ESOF
+} RESUME_STATE;
+
+typedef enum _DEVICE_STATE
+{
+  UNCONNECTED,
+  ATTACHED,
+  POWERED,
+  SUSPENDED,
+  ADDRESSED,
+  CONFIGURED
+} DEVICE_STATE;
+
 /* Exported constants --------------------------------------------------------*/
 /* Exported macro ------------------------------------------------------------*/
-/* Exported define -----------------------------------------------------------*/
-#define MASS_SIZ_DEVICE_DESC              18
-#define MASS_SIZ_CONFIG_DESC              32
-
-#define MASS_SIZ_STRING_LANGID            4
-#define MASS_SIZ_STRING_VENDOR            38
-#define MASS_SIZ_STRING_PRODUCT           38
-#define MASS_SIZ_STRING_SERIAL            26
-#define MASS_SIZ_STRING_INTERFACE         20
-
 /* Exported functions ------------------------------------------------------- */
-extern const uint8_t MASS_DeviceDescriptor[MASS_SIZ_DEVICE_DESC];
-extern const uint8_t MASS_ConfigDescriptor[MASS_SIZ_CONFIG_DESC];
+void Suspend(void);
+void Resume_Init(void);
+void Resume(RESUME_STATE eResumeSetVal);
+RESULT PowerOn(void);
+RESULT PowerOff(void);
 
-extern const uint8_t MASS_StringLangID[MASS_SIZ_STRING_LANGID];
-extern const uint8_t MASS_StringVendor[MASS_SIZ_STRING_VENDOR];
-extern const uint8_t MASS_StringProduct[MASS_SIZ_STRING_PRODUCT];
-extern uint8_t MASS_StringSerial[MASS_SIZ_STRING_SERIAL];
-extern const uint8_t MASS_StringInterface[MASS_SIZ_STRING_INTERFACE];
+/* External variables --------------------------------------------------------*/
+extern  __IO uint32_t bDeviceState; /* USB device status */
+extern __IO bool fSuspendEnabled;  /* true when suspend is possible */
 
-#endif /* __USB_DESC_H */
+#endif  /*__USB_PWR_H*/
 
 /******************* (C) COPYRIGHT 2011 STMicroelectronics *****END OF FILE****/
-
-

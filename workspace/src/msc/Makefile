@@ -3,11 +3,11 @@ include $(MAKEFILE_COMMON)
 EXEC = msc
 
 # source: ./*.c ./src/*.c
-SRCS = $(wildcard ./*.c) $(wildcard ./usb_lib/*.c)
+SRCS = $(wildcard ./*.c) $(wildcard ./src/*.c) $(wildcard ./usb_lib/*.c)
 OBJS = $(patsubst %.c,%.o,$(SRCS)) $(STM32_STARTUP_OBJ)
 
 # header: ./inc/*.h
-CFLAGS += -I./inc -I./ -I ./usb_lib/
+CFLAGS += -I./inc -I./usb_lib
 
 # private library directory ./lib/
 LDFLAGS += -Wl,-Map=$(EXEC).map -L./lib

@@ -1,9 +1,9 @@
 /******************** (C) COPYRIGHT 2011 STMicroelectronics ********************
-* File Name          : usb_desc.h
+* File Name          : usb_lib.h
 * Author             : MCD Application Team
 * Version            : V3.3.0
 * Date               : 21-March-2011
-* Description        : Descriptor Header for Mass Storage Device
+* Description        : USB library include files
 ********************************************************************************
 * THE PRESENT FIRMWARE WHICH IS FOR GUIDANCE ONLY AIMS AT PROVIDING CUSTOMERS
 * WITH CODING INFORMATION REGARDING THEIR PRODUCTS IN ORDER FOR THEM TO SAVE TIME.
@@ -14,41 +14,42 @@
 *******************************************************************************/
 
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __USB_DESC_H
-#define __USB_DESC_H
+#ifndef __USB_LIB_H
+#define __USB_LIB_H
 
 /* Includes ------------------------------------------------------------------*/
 #ifdef STM32L1XX_MD
- #include "stm32l1xx.h"
+#include "stm32l1xx.h"
 #else
- #include "stm32f10x.h"
+#include "stm32f10x.h"
 #endif /* STM32L1XX_MD */
- 
+
+#include "usb_type.h"
+#include "usb_regs.h"
+#include "usb_def.h"
+#include "usb_core.h"
+#include "usb_init.h"
+#ifndef STM32F10X_CL
+ #include "usb_mem.h"
+ #include "usb_int.h"
+#endif /* STM32F10X_CL */
+
+#include "usb_sil.h"
+
+#ifdef STM32F10X_CL
+ #include "otgd_fs_cal.h"
+ #include "otgd_fs_pcd.h"
+ #include "otgd_fs_dev.h"
+ #include "otgd_fs_int.h"
+#endif /* STM32F10X_CL */
+
+
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
 /* Exported macro ------------------------------------------------------------*/
-/* Exported define -----------------------------------------------------------*/
-#define MASS_SIZ_DEVICE_DESC              18
-#define MASS_SIZ_CONFIG_DESC              32
-
-#define MASS_SIZ_STRING_LANGID            4
-#define MASS_SIZ_STRING_VENDOR            38
-#define MASS_SIZ_STRING_PRODUCT           38
-#define MASS_SIZ_STRING_SERIAL            26
-#define MASS_SIZ_STRING_INTERFACE         20
-
 /* Exported functions ------------------------------------------------------- */
-extern const uint8_t MASS_DeviceDescriptor[MASS_SIZ_DEVICE_DESC];
-extern const uint8_t MASS_ConfigDescriptor[MASS_SIZ_CONFIG_DESC];
+/* External variables --------------------------------------------------------*/
 
-extern const uint8_t MASS_StringLangID[MASS_SIZ_STRING_LANGID];
-extern const uint8_t MASS_StringVendor[MASS_SIZ_STRING_VENDOR];
-extern const uint8_t MASS_StringProduct[MASS_SIZ_STRING_PRODUCT];
-extern uint8_t MASS_StringSerial[MASS_SIZ_STRING_SERIAL];
-extern const uint8_t MASS_StringInterface[MASS_SIZ_STRING_INTERFACE];
-
-#endif /* __USB_DESC_H */
+#endif /* __USB_LIB_H */
 
 /******************* (C) COPYRIGHT 2011 STMicroelectronics *****END OF FILE****/
-
-

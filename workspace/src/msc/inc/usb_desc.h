@@ -35,7 +35,7 @@
 #define MASS_SIZ_STRING_VENDOR            38
 #define MASS_SIZ_STRING_PRODUCT           38
 #define MASS_SIZ_STRING_SERIAL            26
-#define MASS_SIZ_STRING_INTERFACE         20
+#define MASS_SIZ_STRING_INTERFACE         16
 
 /* Exported functions ------------------------------------------------------- */
 extern const uint8_t MASS_DeviceDescriptor[MASS_SIZ_DEVICE_DESC];

@@ -1,9 +1,9 @@
 /******************** (C) COPYRIGHT 2011 STMicroelectronics ********************
-* File Name          : usb_desc.h
+* File Name          : mass_mal.h
 * Author             : MCD Application Team
 * Version            : V3.3.0
 * Date               : 21-March-2011
-* Description        : Descriptor Header for Mass Storage Device
+* Description        : Header for mass_mal.c file.
 ********************************************************************************
 * THE PRESENT FIRMWARE WHICH IS FOR GUIDANCE ONLY AIMS AT PROVIDING CUSTOMERS
 * WITH CODING INFORMATION REGARDING THEIR PRODUCTS IN ORDER FOR THEM TO SAVE TIME.
@@ -14,41 +14,23 @@
 *******************************************************************************/
 
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __USB_DESC_H
-#define __USB_DESC_H
+#ifndef __MASS_MAL_H
+#define __MASS_MAL_H
 
 /* Includes ------------------------------------------------------------------*/
-#ifdef STM32L1XX_MD
- #include "stm32l1xx.h"
-#else
- #include "stm32f10x.h"
-#endif /* STM32L1XX_MD */
- 
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
+#define MAL_OK   0
+#define MAL_FAIL 1
+#define MAX_LUN  1
+
 /* Exported macro ------------------------------------------------------------*/
-/* Exported define -----------------------------------------------------------*/
-#define MASS_SIZ_DEVICE_DESC              18
-#define MASS_SIZ_CONFIG_DESC              32
-
-#define MASS_SIZ_STRING_LANGID            4
-#define MASS_SIZ_STRING_VENDOR            38
-#define MASS_SIZ_STRING_PRODUCT           38
-#define MASS_SIZ_STRING_SERIAL            26
-#define MASS_SIZ_STRING_INTERFACE         20
-
 /* Exported functions ------------------------------------------------------- */
-extern const uint8_t MASS_DeviceDescriptor[MASS_SIZ_DEVICE_DESC];
-extern const uint8_t MASS_ConfigDescriptor[MASS_SIZ_CONFIG_DESC];
 
-extern const uint8_t MASS_StringLangID[MASS_SIZ_STRING_LANGID];
-extern const uint8_t MASS_StringVendor[MASS_SIZ_STRING_VENDOR];
-extern const uint8_t MASS_StringProduct[MASS_SIZ_STRING_PRODUCT];
-extern uint8_t MASS_StringSerial[MASS_SIZ_STRING_SERIAL];
-extern const uint8_t MASS_StringInterface[MASS_SIZ_STRING_INTERFACE];
-
-#endif /* __USB_DESC_H */
+uint16_t MAL_Init (uint8_t lun);
+uint16_t MAL_GetStatus (uint8_t lun);
+uint16_t MAL_Read(uint8_t lun, uint32_t Memory_Offset, uint32_t *Readbuff, uint16_t Transfer_Length);
+uint16_t MAL_Write(uint8_t lun, uint32_t Memory_Offset, uint32_t *Writebuff, uint16_t Transfer_Length);
+#endif /* __MASS_MAL_H */
 
 /******************* (C) COPYRIGHT 2011 STMicroelectronics *****END OF FILE****/
-
-

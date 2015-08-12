@@ -164,7 +164,7 @@ void Resume_Init(void)
   
   /* restore full power */
   /* ... on connected devices */
-   //  Uart1_PutString_new("Resume_Init CONFIGURED\n");
+   //  dbg("Resume_Init CONFIGURED\n");
   Leave_LowPowerMode();
 
 #ifndef STM32F10X_CL

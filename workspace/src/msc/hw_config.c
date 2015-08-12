@@ -45,7 +45,7 @@ ErrorStatus HSEStartUpStatus;
 static void IntToUnicode (uint32_t value , uint8_t *pbuf , uint8_t len);
 
 /* Private functions ---------------------------------------------------------*/
-#include <stdio.h>
+
 /*******************************************************************************
 * Function Name  : Set_System
 * Description    : Configures Main system clocks & power
@@ -100,9 +100,9 @@ void Set_System(void)
 *******************************************************************************/
 void Set_USBClock(void)
 {
-      #ifdef  USBCOFIG_DEBUG 
+
       dbg("usb clock set\r\n");
-     #endif
+
 #ifdef STM32L1XX_MD
   /* Enable USB clock */
   RCC_APB1PeriphClockCmd(RCC_APB1Periph_USB, ENABLE);
@@ -280,36 +280,7 @@ void USB_NotConfigured_LED(void)
 *******************************************************************************/
 void USB_Cable_Config (FunctionalState NewState)
 {
-#ifdef STM32L1XX_MD
-  if (NewState != DISABLE)
-  {
-    STM32L15_USB_CONNECT;
-  }
-  else
-  {
-    STM32L15_USB_DISCONNECT;
-  }  
 
-#elif defined(STM32F10X_CL) 
-  if (NewState != DISABLE)
-  {
-    USB_DevConnect();
-  }
-  else
-  {
-    USB_DevDisconnect();
-  }
-  
-#else 
-  if (NewState != DISABLE)
-  {
-    GPIO_ResetBits(USB_DISCONNECT, USB_DISCONNECT_PIN);//复位usb控制引脚
-  }
-  else
-  {
-    GPIO_SetBits(USB_DISCONNECT, USB_DISCONNECT_PIN);//置位usb控制引脚
-  }
-#endif /* STM32L1XX_MD */
 }
 
 /*******************************************************************************

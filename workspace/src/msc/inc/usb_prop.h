@@ -52,10 +52,6 @@ uint8_t *MASS_GetConfigDescriptor(uint16_t);
 uint8_t *MASS_GetStringDescriptor(uint16_t);
 uint8_t *Get_Max_Lun(uint16_t Length);
 
-extern DEVICE_PROP MSC_Device_Property;
-extern  USER_STANDARD_REQUESTS MSC_User_Standard_Requests;
-extern  DEVICE  MSC_Device_Table;
-
 #endif /* __usb_prop_H */
 
 /******************* (C) COPYRIGHT 2011 STMicroelectronics *****END OF FILE****/

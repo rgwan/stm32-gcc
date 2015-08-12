@@ -1,9 +1,9 @@
 /******************** (C) COPYRIGHT 2011 STMicroelectronics ********************
-* File Name          : usb_desc.h
+* File Name          : hw_config.h
 * Author             : MCD Application Team
 * Version            : V3.3.0
 * Date               : 21-March-2011
-* Description        : Descriptor Header for Mass Storage Device
+* Description        : Hardware Configuration & Setup
 ********************************************************************************
 * THE PRESENT FIRMWARE WHICH IS FOR GUIDANCE ONLY AIMS AT PROVIDING CUSTOMERS
 * WITH CODING INFORMATION REGARDING THEIR PRODUCTS IN ORDER FOR THEM TO SAVE TIME.
@@ -14,41 +14,40 @@
 *******************************************************************************/
 
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __USB_DESC_H
-#define __USB_DESC_H
+#ifndef __HW_CONFIG_H
+#define __HW_CONFIG_H
 
 /* Includes ------------------------------------------------------------------*/
-#ifdef STM32L1XX_MD
- #include "stm32l1xx.h"
-#else
  #include "stm32f10x.h"
-#endif /* STM32L1XX_MD */
+
  
+
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
+
 /* Exported macro ------------------------------------------------------------*/
 /* Exported define -----------------------------------------------------------*/
-#define MASS_SIZ_DEVICE_DESC              18
-#define MASS_SIZ_CONFIG_DESC              32
-
-#define MASS_SIZ_STRING_LANGID            4
-#define MASS_SIZ_STRING_VENDOR            38
-#define MASS_SIZ_STRING_PRODUCT           38
-#define MASS_SIZ_STRING_SERIAL            26
-#define MASS_SIZ_STRING_INTERFACE         20
+#define BULK_MAX_PACKET_SIZE  0x00000040
 
 /* Exported functions ------------------------------------------------------- */
-extern const uint8_t MASS_DeviceDescriptor[MASS_SIZ_DEVICE_DESC];
-extern const uint8_t MASS_ConfigDescriptor[MASS_SIZ_CONFIG_DESC];
+void Set_System(void);
+void Set_USBClock(void);
+void Enter_LowPowerMode(void);
+void Leave_LowPowerMode(void);
+void USB_Interrupts_Config(void);
+void Led_Config(void);
+void Led_RW_ON(void);
+void Led_RW_OFF(void);
+void USB_Configured_LED(void);
+void USB_NotConfigured_LED(void);
+void USB_Cable_Config (FunctionalState NewState);
+void Get_SerialNum(void);
+void MAL_Config(void);
+#if defined (USE_STM3210B_EVAL) || defined (USE_STM3210E_EVAL)
+void USB_Disconnect_Config(void);
+#endif /* USE_STM3210B_EVAL or USE_STM3210E_EVAL */
+/* External variables --------------------------------------------------------*/
 
-extern const uint8_t MASS_StringLangID[MASS_SIZ_STRING_LANGID];
-extern const uint8_t MASS_StringVendor[MASS_SIZ_STRING_VENDOR];
-extern const uint8_t MASS_StringProduct[MASS_SIZ_STRING_PRODUCT];
-extern uint8_t MASS_StringSerial[MASS_SIZ_STRING_SERIAL];
-extern const uint8_t MASS_StringInterface[MASS_SIZ_STRING_INTERFACE];
-
-#endif /* __USB_DESC_H */
+#endif  /*__HW_CONFIG_H*/
 
 /******************* (C) COPYRIGHT 2011 STMicroelectronics *****END OF FILE****/
-
-

@@ -24,7 +24,8 @@
  #include "stm32f10x.h"
 #endif /* STM32L1XX_MD */
  
-
+extern uint32_t Yamaha_Counter;
+extern uint8_t isYamaha;
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
 /* Exported macro ------------------------------------------------------------*/

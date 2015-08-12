@@ -52,7 +52,6 @@ extern uint32_t Mass_Block_Count[2];
 *******************************************************************************/
 void SCSI_Inquiry_Cmd(uint8_t lun)
 {
-
   uint8_t* Inquiry_Data;
   uint16_t Inquiry_Data_Length;
 
@@ -66,11 +65,11 @@ void SCSI_Inquiry_Cmd(uint8_t lun)
 
     if ( lun == 0)
     {
-    //  Inquiry_Data = Standard_Inquiry_Data;
+      Inquiry_Data = Standard_Inquiry_Data;
     }
     else
     {
-    //  Inquiry_Data = Standard_Inquiry_Data2;
+      //Inquiry_Data = Standard_Inquiry_Data2;
     }
 
     if (CBW.CB[4] <= STANDARD_INQUIRY_DATA_LEN)
@@ -80,7 +79,6 @@ void SCSI_Inquiry_Cmd(uint8_t lun)
 
   }
   Transfer_Data_Request(Inquiry_Data, Inquiry_Data_Length);
-
 }
 
 /*******************************************************************************

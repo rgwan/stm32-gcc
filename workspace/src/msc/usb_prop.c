@@ -23,14 +23,12 @@
 #include "mass_mal.h"
 #include "usb_prop.h"
 #include "user_uart.h"
-#include <stdio.h>
 #define USBPROP_DEBUG 0
-#define USE_STM3210C_EVAL
+
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
-
 #ifdef USE_STM3210B_EVAL
  uint32_t Max_Lun = 0;
 #elif defined (USE_STM3210E_EVAL)
@@ -40,6 +38,7 @@
 #elif defined (USE_STM32L152_EVAL)
  uint32_t Max_Lun = 0; 
 #endif
+uint32_t Max_Lun = 0;
 
 DEVICE Device_Table =
   {
@@ -116,7 +115,7 @@ void MASS_init()
   /* Update the serial number string descriptor with the data from the unique
   ID*/
       #ifdef  USBPROP_DEBUG 
-     dbg("enter usb MASS_init\r\n");
+      dbg("enter usb MASS_init\r\n");
      #endif
      
   Get_SerialNum();//根据芯片类型修改序列号
@@ -219,7 +218,7 @@ void Mass_Storage_SetConfiguration(void)
     /* Device configured */
     bDeviceState = CONFIGURED; //配置成功
        #ifdef  USBPROP_DEBUG 
-  dbg("Mass_Storage_SetConfiguration CONFIGURED\r\n");
+  dbg("Mass_Storage_SetConfiguration CONFIGURED\n\n");
      #endif
 #ifdef STM32F10X_CL 
     /* Init EP1 IN as Bulk endpoint */

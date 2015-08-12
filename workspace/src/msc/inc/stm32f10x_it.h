@@ -1,9 +1,9 @@
 /******************** (C) COPYRIGHT 2011 STMicroelectronics ********************
-* File Name          : usb_desc.h
+* File Name          : stm32f10x_it.h
 * Author             : MCD Application Team
 * Version            : V3.3.0
 * Date               : 21-March-2011
-* Description        : Descriptor Header for Mass Storage Device
+* Description        : This file contains the headers of the interrupt handlers.
 ********************************************************************************
 * THE PRESENT FIRMWARE WHICH IS FOR GUIDANCE ONLY AIMS AT PROVIDING CUSTOMERS
 * WITH CODING INFORMATION REGARDING THEIR PRODUCTS IN ORDER FOR THEM TO SAVE TIME.
@@ -14,41 +14,41 @@
 *******************************************************************************/
 
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __USB_DESC_H
-#define __USB_DESC_H
+#ifndef __STM32F10x_IT_H
+#define __STM32F10x_IT_H
 
 /* Includes ------------------------------------------------------------------*/
-#ifdef STM32L1XX_MD
- #include "stm32l1xx.h"
-#else
- #include "stm32f10x.h"
-#endif /* STM32L1XX_MD */
- 
+#include "stm32f10x.h"
+
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
 /* Exported macro ------------------------------------------------------------*/
-/* Exported define -----------------------------------------------------------*/
-#define MASS_SIZ_DEVICE_DESC              18
-#define MASS_SIZ_CONFIG_DESC              32
-
-#define MASS_SIZ_STRING_LANGID            4
-#define MASS_SIZ_STRING_VENDOR            38
-#define MASS_SIZ_STRING_PRODUCT           38
-#define MASS_SIZ_STRING_SERIAL            26
-#define MASS_SIZ_STRING_INTERFACE         20
-
 /* Exported functions ------------------------------------------------------- */
-extern const uint8_t MASS_DeviceDescriptor[MASS_SIZ_DEVICE_DESC];
-extern const uint8_t MASS_ConfigDescriptor[MASS_SIZ_CONFIG_DESC];
 
-extern const uint8_t MASS_StringLangID[MASS_SIZ_STRING_LANGID];
-extern const uint8_t MASS_StringVendor[MASS_SIZ_STRING_VENDOR];
-extern const uint8_t MASS_StringProduct[MASS_SIZ_STRING_PRODUCT];
-extern uint8_t MASS_StringSerial[MASS_SIZ_STRING_SERIAL];
-extern const uint8_t MASS_StringInterface[MASS_SIZ_STRING_INTERFACE];
+void NMI_Handler(void);
+void HardFault_Handler(void);
+void MemManage_Handler(void);
+void BusFault_Handler(void);
+void UsageFault_Handler(void);
+void SVC_Handler(void);
+void DebugMon_Handler(void);
+void PendSV_Handler(void);
+void SysTick_Handler(void);
 
-#endif /* __USB_DESC_H */
+#ifndef STM32F10X_CL
+void USB_HP_CAN1_TX_IRQHandler(void);
+void USB_LP_CAN1_RX0_IRQHandler(void);
+#endif /* STM32F10X_CL */
+
+#if defined(STM32F10X_HD) || defined(STM32F10X_XL) 
+void SDIO_IRQHandler(void);
+#endif /* STM32F10X_HD | STM32F10X_XL */
+
+#ifdef STM32F10X_CL
+void OTG_FS_IRQHandler(void);	
+#endif /* STM32F10X_CL */
+					 
+#endif /* __STM32F10x_IT_H */
 
 /******************* (C) COPYRIGHT 2011 STMicroelectronics *****END OF FILE****/
-
 

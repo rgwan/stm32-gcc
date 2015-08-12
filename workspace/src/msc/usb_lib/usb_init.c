@@ -16,7 +16,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "usb_lib.h"
 #include "user_uart.h"
-#include <stdio.h>
 #define USBINIT_DEBUG 0
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -55,7 +54,7 @@ USER_STANDARD_REQUESTS  *pUser_Standard_Requests;
 void USB_Init(void)
 {
       #ifdef  USBINIT_DEBUG 
-      dbg("usb init set\n");
+      dbg("usb init set\r\n");
      #endif
       
   pInformation = &Device_Info;

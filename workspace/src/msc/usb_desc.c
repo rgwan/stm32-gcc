@@ -102,17 +102,17 @@ const uint8_t MASS_StringVendor[MASS_SIZ_STRING_VENDOR] =
     MASS_SIZ_STRING_VENDOR, /* Size of manufacturer string */
     0x03,           /* bDescriptorType = String descriptor */
     /* Manufacturer: "STMicroelectronics" */
-    'S', 0, 'T', 0, 'M', 0, 'i', 0, 'c', 0, 'r', 0, 'o', 0, 'e', 0,
-    'l', 0, 'e', 0, 'c', 0, 't', 0, 'r', 0, 'o', 0, 'n', 0, 'i', 0,
-    'c', 0, 's', 0
+    'D', 0, 'i', 0, 'o', 0, 'd', 0, 'e', 0, 'P', 0, ' ', 0, 'U', 0,
+    'S', 0, 'B', 0, ' ', 0, 'D', 0, 'e', 0, 'v', 0, 'i', 0, 'c', 0,
+    'e', 0, 's', 0
   };
 const uint8_t MASS_StringProduct[MASS_SIZ_STRING_PRODUCT] =
   {
     MASS_SIZ_STRING_PRODUCT,
     0x03,
     /* Product name: "STM32F10x:USB Mass Storage" */
-    'S', 0, 'T', 0, 'M', 0, '3', 0, '2', 0, ' ', 0, 'M', 0, 'a', 0, 's', 0,
-    's', 0, ' ', 0, 'S', 0, 't', 0, 'o', 0, 'r', 0, 'a', 0, 'g', 0, 'e', 0
+    'U', 0, 'S', 0, 'B', 0, 'S', 0, 'e', 0, 'c', 0, 'r', 0, 'e', 0, 't', 0,
+    'F', 0, 'l', 0, 'a', 0, 's', 0, 'h', 0, 'D', 0, 'i', 0, 's', 0, 'k', 0
 
   };
 
@@ -121,18 +121,14 @@ uint8_t MASS_StringSerial[MASS_SIZ_STRING_SERIAL] =
     MASS_SIZ_STRING_SERIAL,
     0x03,
     /* Serial number*/
-#ifdef STM32L1XX_MD
-    'S', 0, 'T', 0, 'M', 0, '3', 0, '2', 0, 'L', 0, '1', 0
-#else
-    'S', 0, 'T', 0, 'M', 0, '3', 0, '2', 0, '1', 0, '0', 0      
-#endif /* STM32L1XX_MD */
+    'F', 0, 'o', 0, 'r', 0, 'L', 0, 'T', 0, 'M', 0, 'S', 0      
   };
 const uint8_t MASS_StringInterface[MASS_SIZ_STRING_INTERFACE] =
   {
     MASS_SIZ_STRING_INTERFACE,
     0x03,
-    /* Interface 0: "ST Mass" */
-    'S', 0, 'T', 0, ' ', 0, 'M', 0, 'a', 0, 's', 0, 's', 0
+    /* Interface 0: "ST Mass" */ 
+    'U', 0, 'S', 0, 'B', 0, 'F', 0, 'l', 0, 'a', 0, 's', 0, 'h', 0
   };
 
 /******************* (C) COPYRIGHT 2011 STMicroelectronics *****END OF FILE****/

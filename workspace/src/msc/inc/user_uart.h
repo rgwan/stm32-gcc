@@ -4,13 +4,14 @@
 #define _USER_UART_H
 
 #include "stm32f10x.h"
+#include <stdio.h>
 //#include "platform_config.h"
 //#include "stm32_eval.h"
 /* Includes ------------------------------------------------------------------*/
 
 
 
-#include <stdio.h>
+
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 /* Private macro -------------------------------------------------------------*/

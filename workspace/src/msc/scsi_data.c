@@ -38,13 +38,14 @@ uint8_t Standard_Inquiry_Data[] =
     0x00,
     0x00,
     /* Vendor Identification */
-    'S', 'T', 'M', ' ', ' ', ' ', ' ', ' ',
+    'D', 'i', 'o', 'd', 'e', ' ', ' ', ' ',
     /* Product Identification */
-    'S', 'D', ' ', 'F', 'l', 'a', 's', 'h', ' ',
-    'D', 'i', 's', 'k', ' ', ' ', ' ',
+    'N', 'A', 'N', 'D', ' ', 'F', 'l', 'a', 's', 'h', ' ',
+    'D', 'i', 's', 'k', ' ',
     /* Product Revision Level */
     '1', '.', '0', ' '
   };
+#if 0
 uint8_t Standard_Inquiry_Data2[] =
   {
     0x00,          /* Direct Access Device */
@@ -64,6 +65,7 @@ uint8_t Standard_Inquiry_Data2[] =
     /* Product Revision Level */
     '1', '.', '0', ' '
   };
+#endif
 /*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
 uint8_t Mode_Sense6_data[] =
   {
