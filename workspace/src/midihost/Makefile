@@ -1,6 +1,6 @@
 include $(MAKEFILE_COMMON)
 
-EXEC = template
+EXEC = midihost
 
 LD_FILE = stm32_flash.ld
 

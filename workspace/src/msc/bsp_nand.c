@@ -107,6 +107,7 @@ static uint16_t NAND_AddrToPhyBlockNo(uint32_t _ulMemAddr);
 static uint8_t NAND_IsBufOk(uint8_t *_pBuf, uint32_t _ulLen, uint8_t _ucValue);
 uint8_t NAND_WriteToNewBlock(uint32_t _ulPhyPageNo, uint8_t *_pWriteBuf, uint16_t _usOffset, uint16_t _usSize);
 static uint8_t NAND_IsFreeBlock(uint32_t _ulBlockNo);
+static uint8_t NAND_IsBadBlock(uint32_t _ulBlockNo);
 
 /*
 *********************************************************************************************************
@@ -116,7 +117,7 @@ static uint8_t NAND_IsFreeBlock(uint32_t _ulBlockNo);
 *	返 回 值: 无
 *********************************************************************************************************
 */
-#define TIME_OUT_VALUE 10000000000UL
+#define TIME_OUT_VALUE 1000000000UL
 /*
 *********************************************************************************************************
 *	函 数 名: FSMC_NAND_Init
@@ -618,11 +619,18 @@ uint8_t NAND_Init(void)
 	FSMC_NAND_Init();			/* 配置FSMC和GPIO用于NAND Flash接口 */
 	
 	FSMC_NAND_Reset();			/* 通过复位命令复位NAND Flash到读状态 */
-	#if 0
-	for(i = 0; i < 128; i++)
-		FSMC_NAND_EraseBlock(i);						
-	NAND_Format();
-	#endif 
+	#if 1
+	int i;
+	for(i = 0; i < 1024; i++)
+		FSMC_NAND_EraseBlock(i);	
+	NAND_MarkBadBlock(972);	
+	NAND_MarkBadBlock(966);		
+	NAND_MarkBadBlock(965);	
+	NAND_MarkBadBlock(964);	
+	NAND_MarkBadBlock(138);			
+	NAND_MarkBadBlock(967);
+	NAND_Format(0);
+	#endif
 	Status = NAND_BuildLUT();	/* 建立块管理表 LUT = Look up table */
 	if(Status)
 	{
@@ -634,10 +642,10 @@ uint8_t NAND_Init(void)
 		while(Status);//如果格不了就死在这里
 		dbg("Okay\r\n");
 	}
+	
 	NAND_DispBadBlockInfo();
 	dbg("Capacity = %d\r\n", (int)NAND_FormatCapacity());
 
-	while(1);
 	return Status;
 }
 
@@ -682,6 +690,7 @@ uint8_t NAND_WriteToNewBlock(uint32_t _ulPhyPageNo, uint8_t *_pWriteBuf, uint16_
 				if (FSMC_NAND_PageCopyBackEx(ulSrcBlock * NAND_BLOCK_SIZE + i, usNewBlock * NAND_BLOCK_SIZE + i,
 					_pWriteBuf, _usOffset, _usSize) == NAND_FAIL)
 				{
+					dbg("Copy-Back-Ex error on block %d\r\n", usNewBlock);
 					NAND_MarkBadBlock(usNewBlock);	/* 将新块标记为坏块 */
 					NAND_BuildLUT();				/* 重建LUT表 */
 					break;
@@ -693,6 +702,7 @@ uint8_t NAND_WriteToNewBlock(uint32_t _ulPhyPageNo, uint8_t *_pWriteBuf, uint16_
 				if (FSMC_NAND_PageCopyBack(ulSrcBlock * NAND_BLOCK_SIZE + i, 
 					usNewBlock * NAND_BLOCK_SIZE + i) == NAND_FAIL)
 				{
+					dbg("Copy-Back error on block %d\r\n", usNewBlock);
 					NAND_MarkBadBlock(usNewBlock);	/* 将新块标记为坏块 */
 					NAND_BuildLUT();				/* 重建LUT表 */
 					break;
@@ -705,6 +715,7 @@ uint8_t NAND_WriteToNewBlock(uint32_t _ulPhyPageNo, uint8_t *_pWriteBuf, uint16_
 			/* 标记新块为已用块 */
 			if (NAND_MarkUsedBlock(usNewBlock) == NAND_FAIL)
 			{
+				dbg("Mark Used Block on block %d\r\n", usNewBlock);
 				NAND_MarkBadBlock(usNewBlock);	/* 将新块标记为坏块 */
 				NAND_BuildLUT();				/* 重建LUT表 */
 				continue;
@@ -713,6 +724,7 @@ uint8_t NAND_WriteToNewBlock(uint32_t _ulPhyPageNo, uint8_t *_pWriteBuf, uint16_
 			/* 擦除源BLOCK */
 			if (FSMC_NAND_EraseBlock(ulSrcBlock) != NAND_READY)
 			{
+				dbg("Erase error on block %d\r\n", ulSrcBlock);
 				NAND_MarkBadBlock(ulSrcBlock);	/* 将源块标记为坏块 */
 				NAND_BuildLUT();				/* 重建LUT表 */
 				continue;
@@ -854,9 +866,10 @@ static uint8_t NAND_BuildLUT(void)
 	}
 	for (i = 0; i < NAND_BLOCK_COUNT; i++)
 	{
+		/* 如果是坏块 */
+		if(NAND_IsBadBlock(i)) continue;
 		/* 读每个块的第1个PAGE，偏移地址为LBN0_OFFSET的数据 */
 		if(FSMC_NAND_ReadSpare(buf, i * NAND_BLOCK_SIZE, 0, VALID_SPARE_SIZE)) continue;
-		/* 如果是坏块 */
 		/* 如果是好块，则记录LBN0 LBN1 */
 		if (buf[BI_OFFSET] == 0xFF)	
 		{
@@ -1175,7 +1188,7 @@ static void NAND_MarkBadBlock(uint32_t _ulBlockNo)
 {								   
 	uint32_t ulPageNo;
 	uint8_t ucFlag;
-	
+	dbg("Mark bad block %d\r\n", _ulBlockNo);
 	/* 计算块的第1个页号 */
 	ulPageNo = _ulBlockNo * NAND_BLOCK_SIZE;	/* 计算该块第1个页的页号 */
 	

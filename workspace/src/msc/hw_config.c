@@ -350,12 +350,6 @@ static void IntToUnicode (uint32_t value , uint8_t *pbuf , uint8_t len)
 void MAL_Config(void)
 {
   MAL_Init(0);//≥ı ºªØSDø®
-
-#if defined(STM32F10X_HD) || defined(STM32F10X_XL) 
-  /* Enable the FSMC Clock */
-  RCC_AHBPeriphClockCmd(RCC_AHBPeriph_FSMC, ENABLE);
-  MAL_Init(1);
-#endif /* STM32F10X_HD | STM32F10X_XL */
 }
 
 #if defined (USE_STM3210B_EVAL) || defined (USE_STM3210E_EVAL)
