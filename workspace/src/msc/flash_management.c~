@@ -1,0 +1,1224 @@
+/***************************************************************************
+Cheap_Flash_FS--嵌入式NandFlash文件系统源码下载
+Cheap_Flash_FS 代码已经由我们开发完成，并经过了严格的测试。
+坏块管理功能包括基于坏块表的管理程序，可以提供单/多扇区的操作。
+多扇区为nandflash专门设计，可以降低NANDFLASH物理擦除数。
+其上面可以运行（Cheap_Flash_FS（支持多扇区操作））文件系统。
+文件系统可支持实时坏块替换，包括擦除块，块移动，写入页产生坏块。文件系统基于NAND_FLASH坏块管理层驱动运行。
+NAND_FLASH坏块管理支持ECC纠错，对每个扇区执行二次ECC纠错，保证数据正确的读出。
+NAND_FLASH坏块管理层如果发现Unrecoverable_error扇区，可把扇区读出置为0，等于目录已结束，避免了文件系统运行出错。
+
+本代码是32BIT的坏块表文件系统，可支持大于4G的nandflash,用于用户代码测试！
+可以用于U盘和SD卡的设计上。以及其它大容量存储项目上。
+qq:292942278   e-mail:tony_yang123@sina.com
+****************************************************************************/
+ 
+#include "include\types.h" 
+#include "nandflash\nandflash.h"
+#include "ecc_cfg.h"
+#include "yaffs_ecc.h"
+#include "stdio.h"
+	
+//Assign RAM buffer to Flash Management System's Application
+static u8 buf[2112], k, ee;
+u8 store_bad_table[2112];
+u8 buf3[2112];
+   u8 last_page_EN = 0;
+u32 last_page_block = 0xffffffff;
+u32 last_page_ID = 0xffffffff;
+u32 last_block_address = 0xffffffff;
+u8 buff[2112];
+  u8 first_page_EN = 0;
+u32 first_page_block;
+u32 first_page_ID;
+u32 first_block_address;
+u8 first_buff[2112];
+  u32 i;
+u32 flag;
+ u32 for_block_0_move;
+u32 for_block_move;
+u8 trigger = 0;
+ u32 table_num;
+  u32 block_allocate_for_block_bad_table[512];
+ 
+//#define MaxBlock (65536*2)  //16G
+//#define MaxBlock (65536*8) 
+#define MaxBlock (2048)			//256M
+	
+#define Block_BAD 0
+#define Block_OK 0xfffffffe
+//#define Blocks_Reserved   21038
+#define Blocks_Reserved   160
+#define Block_Allocated 0xffffFFFC
+	 
+/*
+===============================================================================
+函数 
+Makeup Block BAD Table,and save it in block 0 from page 0
+入口: 无
+出口：SUCC
+===============================================================================
+*/ 
+	u8 Makeup_Block_BAD_Table() 
+{
+	u32 block_0_move_allocated, move_dest_allocated, t, x, i, k, j;
+	u32 block_allocate_for_block_bad_table_allocated, block;
+	NandFlash_PageRead(0, 0, buf);	//Read 1st page of block 0
+	if (buf[2110] == 0x55 && buf[2111] == 0xaa)	//Check Makeup_Block_BAD_Table already established?
+	{							//block bad table already established!
+		for_block_0_move =
+			buf[0] + buf[1] * 256 + buf[2] * 65536 + buf[3] * 256 * 65536;
+		
+			//NandFlash_PageRead(0,62,buf);
+			for_block_move =
+			buf[4] + buf[5] * 256 + buf[6] * 65536 + buf[7] * 256 * 65536;
+		i = 0;
+		
+		do
+		{
+			if (buf[i * 4 + 8] == 0xff && buf[i * 4 + 9] == 0xff
+				 && +buf[i * 4 + 10] == 0xff && buf[i * 4 + 11] == 0xff)
+				break;
+			block_allocate_for_block_bad_table[i] =
+				buf[i * 4 + 8] + buf[i * 4 + 9] * 256 + buf[i * 4 +
+															10] * 65536 +
+				buf[i * 4 + 11] * 256 * 65536;
+			i++;
+		}
+		while (1);
+		table_num = i;
+		for (j = 0; j < i; j++)
+			printf("block_allocate_for_block_bad_table[i]=%d i = %d\n",
+					block_allocate_for_block_bad_table[j], i);
+		return (SUCC);			//Block BAD table already established,quit!
+	}
+	 for (i = 0; i < 512; i++)
+		block_allocate_for_block_bad_table[i] = 0;
+	NandFlash_BlockErase(0);
+	k = 1;
+	t = 0;
+	x = 0;
+	block_0_move_allocated = 0;
+	move_dest_allocated = 0;
+	block = 0;
+	block_allocate_for_block_bad_table_allocated = 1;
+	for (i = 1; i < MaxBlock; i++)	//Check block one by one until to MaxBlock
+	{
+		if ((i % 10000) == 0)
+			printf("i=%d", i);
+		flag = Block_BAD;
+		NandFlash_PageRead(i, 0, buf);	//Read 1st page of block
+		if (buf[2048] == 0xff && buf[2049] == 0xff)	//
+		{
+			flag = Block_OK;	//Flag == 0xfffe
+			if (!block_0_move_allocated)
+				
+			{					//////printf("\n3block=%d",i);//allocate a destination block for block move 
+				store_bad_table[0] = Block_OK;
+				store_bad_table[1] = Block_OK / 256;
+				store_bad_table[2] = Block_OK / 65536;
+				store_bad_table[3] = Block_OK / (256 * 65536);
+				for_block_0_move = i;
+				flag = Block_Allocated;
+				block_0_move_allocated = 1;
+			 }
+			
+			else if (!move_dest_allocated)
+				
+			{
+				flag = Block_Allocated;
+				move_dest_allocated = 1;
+				for_block_move = i;
+			 }
+			
+			else if (x <= (MaxBlock / 33792))
+				
+			{
+				
+					//NandFlash_BlockErase(i);
+					flag = Block_Allocated;
+				block_allocate_for_block_bad_table[x] = i;
+				x++;
+			 }
+		}
+		
+		else
+			
+		{
+			 NandFlash_PageRead(i, 1, buf);	//Read 2st page of bloc
+			flag = Block_BAD;
+		 }
+		store_bad_table[(i % 528) * 4] = flag;	//temmorarily save block status
+		store_bad_table[(i % 528) * 4 + 1] = flag >> 8;
+		store_bad_table[(i % 528) * 4 + 2] = flag >> 16;	//temmorarily save block status
+		store_bad_table[(i % 528) * 4 + 3] = flag >> 24;
+		if (((i + 1) % 528) == 0 || i >= (MaxBlock - 1))
+			
+		{						//block status piled up,Save them to page k of block 0
+			NandFlash_PageWrite(block, k, store_bad_table);
+			for (j = 0; j < 2112; j++)
+				store_bad_table[j] = 0xff;
+			
+				//printf("write k=%d,block = %d\n",k,block);
+				k++;
+			if (k == 64)
+				
+			{
+				block = block_allocate_for_block_bad_table[t];
+				t++;
+				k = 0;
+				block_allocate_for_block_bad_table_allocated = 0;
+			}
+		}
+	}
+	
+		////printf("k=%d,block = %d",k,block);
+		 NandFlash_PageRead(0, 0, buf);
+	for (i = 0; i < 2112; i++)
+		buf[i] = 0xff;
+	buf[0] = for_block_0_move;
+	buf[1] = for_block_0_move >> 8;
+	buf[2] = for_block_0_move >> 16;
+	buf[3] = for_block_0_move >> 24;
+	buf[4] = for_block_move;
+	buf[5] = for_block_move >> 8;
+	buf[6] = for_block_move >> 16;
+	buf[7] = for_block_move >> 24;
+	 for (i = 0; i < t; i++)
+		
+	{
+		buf[8 + i * 4] = block_allocate_for_block_bad_table[i];
+		buf[8 + i * 4 + 1] = block_allocate_for_block_bad_table[i] >> 8;
+		buf[8 + i * 4 + 2] = block_allocate_for_block_bad_table[i] >> 16;
+		buf[8 + i * 4 + 3] = block_allocate_for_block_bad_table[i] >> 24;
+	}
+	 buf[2110] = 0x55;
+	buf[2111] = 0xaa;
+	NandFlash_PageWrite(0, 0, buf);
+	return (SUCC);
+}
+
+ 
+/*
+===============================================================================
+函数 
+get_block_page_offset_info
+入口: 无
+出口：SUCC
+===============================================================================
+*/ 
+	u8 get_block_page_offset_info(u32 block_address, u32 * page, u32 * block,
+								  u32 * block_status_offset_in_page,
+								  u8 * buffer) 
+{
+	u32 i;
+	*block = block_address / (528 * 64);
+	*page = (block_address % (528 * 64)) / 528;
+	i = *page;
+	if ((++i) == 64)
+		
+	{
+		*page = 0;
+		(*block)++;
+		i = 0;
+	}
+	*page = i;
+	 if ((*block) > 0)
+		
+	{							//NandFlash_PageRead(0,0,buf);
+		//*block = buf[(*block)*4+8] + buf[(*block)*4+9] * 256+buf[(*block)*4+10] *65536+ buf[(*block)*4+11] * 256*65536;
+		*block = block_allocate_for_block_bad_table[(*block) - 1];
+	}
+	  
+		//NandFlash_PageRead(*block,*page,buf);
+		*block_status_offset_in_page = ((block_address) % 528) * 4;
+	return SUCC;
+}
+
+
+/*
+===============================================================================
+函数 
+block replacement for bad block
+入口: block_address: block_address of bad block
+出口：phy_block_address: assigned new block
+===============================================================================
+*/ 
+static u8 bad_block_replacement(u32 block_address, u32 * phy_blk_address) 
+{
+	u32 bad_block;
+	u32 block_status_offset_in_page, page, block;
+	u32 i;
+	u8 buf[2112];
+	get_block_page_offset_info(block_address, &page, &block,
+								&block_status_offset_in_page, buf);
+	
+		//if((block_status_offset_in_page % 2112)==0)
+		NandFlash_PageRead(block, page, buf);
+	 bad_block =
+		buf[block_status_offset_in_page + 1] * 256 +
+		buf[block_status_offset_in_page] + buf[block_status_offset_in_page +
+												 2] * 256 * 256 +
+		buf[block_status_offset_in_page + 3] * 256 * 256 * 256;
+	
+		////////printf("run bad block = %d replacement",bad_block);
+		if (bad_block > 0 && bad_block < Blocks_Reserved)
+		
+	{
+		get_block_page_offset_info(bad_block, &page, &block,
+									&block_status_offset_in_page, buf);
+		NandFlash_PageRead(block, page, buf);	//Read 1st page of block
+		buf[block_status_offset_in_page] = (u8) (Block_BAD & 0xff);	//Block_Bad
+		buf[block_status_offset_in_page + 1] = (u8) ((Block_BAD >> 8) & 0xff);
+		buf[block_status_offset_in_page + 2] = (u8) ((Block_BAD >> 16) & 0xff);
+		buf[block_status_offset_in_page + 3] = (u8) ((Block_BAD >> 24) & 0xff);
+		NandFlash_BlockErase(for_block_0_move);
+		NandFlash_move_block(block, for_block_0_move, page, page, buf);
+		NandFlash_BlockErase(block);
+		NandFlash_move_block(for_block_0_move, block, 0xff, 0xff, buf);
+	}
+	  get_block_page_offset_info(1, &page, &block,
+									&block_status_offset_in_page, buf);
+	NandFlash_PageRead(block, page, buf);
+	 
+		//seek a free block for bad block replacement
+		for (i = 1; i < Blocks_Reserved; i++)
+		
+	{
+		get_block_page_offset_info(i, &page, &block,
+									&block_status_offset_in_page, buf);
+		if ((block_status_offset_in_page % 2112) == 0)
+			
+		{
+			
+				//printf("block_status_offset_in_page = %d",block_status_offset_in_page);
+				NandFlash_PageRead(block, page, buf);
+		}
+		
+			//////printf("block=%d page = %d i = %d block_status_offset_in_page = %d\n",block,page,i,block_status_offset_in_page);
+			if (buf[block_status_offset_in_page] == 0xfe
+				 && buf[block_status_offset_in_page + 1] ==
+				 0xff  &&buf[block_status_offset_in_page + 2] == 0xff
+				 && buf[block_status_offset_in_page + 3] == 0xff)
+			
+		{
+			NandFlash_PageRead(block, page, buf);
+			buf[block_status_offset_in_page] = (u8) (Block_Allocated & 0xff);	//set block status to Block_Allocated
+			buf[block_status_offset_in_page + 1] =
+				(u8) ((Block_Allocated >> 8) & 0xff);
+			buf[block_status_offset_in_page + 2] = (u8) ((Block_Allocated >> 16) & 0xff);	//set block status to Block_Allocated
+			buf[block_status_offset_in_page + 3] =
+				(u8) ((Block_Allocated >> 24) & 0xff);
+			  NandFlash_BlockErase(for_block_0_move);
+			NandFlash_move_block(block, for_block_0_move, page, page, buf);
+			NandFlash_BlockErase(block);
+			NandFlash_move_block(for_block_0_move, block, 0xff, 0xff, buf);
+			  get_block_page_offset_info(block_address, &page, &block,
+											&block_status_offset_in_page, buf);
+			NandFlash_PageRead(block, page, buf);
+			buf[block_status_offset_in_page] = (u8) (i & 0xff);	//set block status to Block_Allocated
+			buf[block_status_offset_in_page + 1] = (u8) ((i >> 8) & 0xff);
+			buf[block_status_offset_in_page + 2] = (u8) ((i >> 16) & 0xff);	//set block status to Block_Allocated
+			buf[block_status_offset_in_page + 3] = (u8) ((i >> 24) & 0xff);
+			  NandFlash_BlockErase(for_block_0_move);
+			NandFlash_move_block(block, for_block_0_move, page, page, buf);
+			NandFlash_BlockErase(block);
+			NandFlash_move_block(for_block_0_move, block, 0xff, 0xff, buf);
+			
+				//printf("i=%d     \n");
+				*phy_blk_address = i;
+			return (SUCC);
+		}
+	}
+	
+		//printf("FAIL FAIL\N");
+		return (SUCC);
+}
+
+ 
+/*
+===============================================================================
+函数 
+block replacement for bad block_for_block_move_dest
+入口: phy_block_address: assigned new block
+出口：SUCC,FAIL
+===============================================================================
+*/ 
+static u8 bad_block_replacement_for_block_move_dest(u32 * phy_blk_address) 
+{
+	u32 bad_block;
+	u32 block_status_offset_in_page, page, block;
+	u32 i;
+	u8 buf[2112];
+	 
+		//flag bad block
+		NandFlash_PageRead(0, 0, buf);	//Read 1st page of block
+	block_status_offset_in_page = 4;
+	bad_block =
+		buf[block_status_offset_in_page + 1] * 256 +
+		buf[block_status_offset_in_page] + buf[block_status_offset_in_page +
+												 2] * 256 * 256 +
+		buf[block_status_offset_in_page + 3] * 256 * 256 * 256;
+	
+		////////printf("run bad block = %d replacement",bad_block);
+		if (bad_block > 0 && bad_block < Blocks_Reserved)
+		
+	{
+		 get_block_page_offset_info(bad_block, &page, &block,
+									  &block_status_offset_in_page, buf);
+		NandFlash_PageRead(block, page, buf);	//Read 1st page of block
+		buf[block_status_offset_in_page] = (u8) (Block_BAD & 0xff);	//Block_Bad
+		buf[block_status_offset_in_page + 1] = (u8) ((Block_BAD >> 8) & 0xff);
+		buf[block_status_offset_in_page + 2] = (u8) ((Block_BAD >> 16) & 0xff);
+		buf[block_status_offset_in_page + 3] = (u8) ((Block_BAD >> 24) & 0xff);
+		NandFlash_BlockErase(for_block_0_move);
+		NandFlash_move_block(block, for_block_0_move, page, page, buf);
+		NandFlash_BlockErase(block);
+		NandFlash_move_block(for_block_0_move, block, 0xff, 0xff, buf);
+	  }
+	get_block_page_offset_info(1, &page, &block, &block_status_offset_in_page,
+								buf);
+	NandFlash_PageRead(block, page, buf);
+	 
+		//seek a free block for bad block replacement
+		for (i = 1; i < Blocks_Reserved; i++)
+		
+	{
+		get_block_page_offset_info(i, &page, &block,
+									&block_status_offset_in_page, buf);
+		if ((block_status_offset_in_page % 2112) == 0)
+			NandFlash_PageRead(block, page, buf);
+		 if (buf[block_status_offset_in_page] == 0xfe
+			   && buf[block_status_offset_in_page + 1] ==
+			   0xff  &&buf[block_status_offset_in_page + 2] == 0xff
+			   && buf[block_status_offset_in_page + 3] == 0xff)
+			
+		{
+			NandFlash_PageRead(block, page, buf);
+			buf[block_status_offset_in_page] = (u8) (Block_Allocated & 0xff);	//set block status to Block_Allocated
+			buf[block_status_offset_in_page + 1] =
+				(u8) ((Block_Allocated >> 8) & 0xff);
+			buf[block_status_offset_in_page + 2] = (u8) ((Block_Allocated >> 16) & 0xff);	//set block status to Block_Allocated
+			buf[block_status_offset_in_page + 3] =
+				(u8) ((Block_Allocated >> 24) & 0xff);
+			  NandFlash_BlockErase(for_block_0_move);
+			NandFlash_move_block(block, for_block_0_move, page, page, buf);
+			NandFlash_BlockErase(block);
+			NandFlash_move_block(for_block_0_move, block, 0xff, 0xff, buf);
+			  page = 0;
+			NandFlash_PageRead(0, 0, buf);
+			block_status_offset_in_page = 4;
+			buf[block_status_offset_in_page] = (u8) (i & 0xff);	//set block status to Block_Allocated
+			buf[block_status_offset_in_page + 1] = (u8) ((i >> 8) & 0xff);
+			buf[block_status_offset_in_page + 2] = (u8) ((i >> 16) & 0xff);	//set block status to Block_Allocated
+			buf[block_status_offset_in_page + 3] = (u8) ((i >> 24) & 0xff);
+			  NandFlash_BlockErase(for_block_0_move);
+			NandFlash_move_block(0, for_block_0_move, page, page, buf);
+			NandFlash_BlockErase(0);
+			NandFlash_move_block(for_block_0_move, 0, 0xff, 0xff, buf);
+			 *phy_blk_address = i;
+			printf("random bad block generate");
+			
+				//scanf("%c",&i);
+				return (SUCC);
+		}
+	}
+	return (SUCC);
+}
+
+
+/*
+===============================================================================
+函数 
+Convert Logical block address  to physical block address
+入口: block_address,
+出口：*phy_block_address = PHA,SUCC
+===============================================================================
+*/ 
+static u8 Convert_LBA_to_PBA(u32 block_address, u32 * phy_block_address) 
+{
+	u32 block_status_offset_in_page, page, block;
+	u8 buf[2112];
+	 get_block_page_offset_info(block_address, &page, &block,
+								  &block_status_offset_in_page, buf);
+	NandFlash_PageRead(block, page, buf);
+	if (buf[block_status_offset_in_page] == 0xfe
+		 && buf[block_status_offset_in_page + 1] ==
+		 0xff  &&buf[block_status_offset_in_page + 2] ==
+		 0xff  &&buf[block_status_offset_in_page + 3] == 0xff)
+		
+	{							//Block is ok without block replacement
+//printf("iiiiiiiiiiiii");
+		*phy_block_address = block_address;
+		return (SUCC);
+	}
+	
+	else if (buf[block_status_offset_in_page] == 0
+			 && buf[block_status_offset_in_page + 1] ==
+			 0  &&buf[block_status_offset_in_page + 2] ==
+			 0  &&buf[block_status_offset_in_page + 3] == 0)
+		
+	{							//printf("hhhhhhhhhhhh");
+		
+			//Block is bad,need to implement block replacement
+			//////printf("BAD BLOCK FOUND!!!\n");
+			bad_block_replacement(block_address, phy_block_address);
+		
+			//printf("phy_block_address=%d block_address=%d",*phy_block_address,block_address);
+			//printf("ddddddddddddddd");
+			////////printf("blk replace implemented! to %ld",*phy_block_address);
+			return (SUCC);
+	}
+	
+	else
+		
+	{							//printf("jjjjjjjjjjjjjjjj");
+		
+			//Block is bad,already with block replacement
+			////////printf("Block is bad,already with block replacement");
+			*phy_block_address =
+			buf[block_status_offset_in_page + 1] * 256 +
+			buf[block_status_offset_in_page] +
+			buf[block_status_offset_in_page +
+				2] * 256 * 256  +buf[block_status_offset_in_page +
+									  3] * 256 * 256 * 256;
+		
+			//printf("block bad already allocate =%d\n",*phy_block_address);
+			//printf("block_status_offset_in_page=%d,page=%d,block=%d",block_status_offset_in_page,page,block);
+			return (SUCC);
+	}
+}
+
+
+/*
+===============================================================================
+?? 
+read flash sector
+??: buf:????????,sector_address:flash????
+??:SUCC
+===============================================================================
+*/ 
+	u8 Nandflash_read_flash_sector(u8 * buffer, u32 sector_address, u8 disk_id,
+								   u16 sector_numbers) 
+{
+	u32 phy_block_address, x, j, offset;
+	u32 i, z;
+	 
+		//printf("\n\nread_sector_numbers=%d\n\n",sector_numbers);
+		do
+	{
+		Convert_LBA_to_PBA(Blocks_Reserved + sector_address / 256,
+							&phy_block_address);
+		
+		do
+		{
+			NandFlash_PageRead(phy_block_address, (sector_address % 256) / 4,
+								buf);
+			j = (sector_address % 256) % 4;
+			i = 4 - j;
+			for (j = 0; j < i; j++)
+				
+			{
+				if (sector_numbers == 0)
+					
+				{
+					return (SUCC);
+				}
+				sector_numbers--;
+				offset = (((sector_address) % 256) % 4 * 512);
+				for (x = 0; x < 512; x++)
+					
+				{
+					buffer[x + j * 512] = buf[offset + x];
+				}
+				z = ((sector_address % 256) % 4);
+				
+					/*??ECC??,?ECC??????0 */ 
+					if (yaffs_ECCCorrect(buf + offset, buf + 2048 + z * 6) ==
+						Unrecoverable_error)
+					
+				{				//printf("ecc1 error! j =%d",j);
+					for (x = 0; x < 256; x++)
+						
+					{
+						buffer[x + j * 512] = 0;
+					}
+				}
+				if (yaffs_ECCCorrect
+					 (buf + offset + 256,
+					  buf + 2048 + z * 6 + 3) == Unrecoverable_error)
+					
+				{				//printf("ecc2 error!");
+					for (x = 0; x < 256; x++)
+						
+					{
+						buffer[x + j * 512 + 256] = 0;
+					}
+				}
+				sector_address++;
+			}
+			buffer = buffer + 512 * i;
+			if (((sector_address % 256) / 4) == 0)
+				break;
+		}
+		while (1);
+	}
+	while (1);
+ }
+
+
+/*
+===============================================================================
+函数 
+写一个物理页,带写错误坏块替换
+入口: 
+出口：SUCC
+===============================================================================
+*/ 
+	Write_Physical_Page(u32 * phy_block_address, u32 page_from, u32 blk_address,
+					u8 * buf) 
+{
+	u8 a;
+	
+		//printf("phy_block_address=%d  page_address =%d",*phy_block_address,page_from);
+		//scanf("%c",&a);
+		//printf("xxxxxxxxxxxi = %d",i);
+		while (NandFlash_PageWrite(*phy_block_address, page_from, buf) == FAIL)
+		
+	{
+		 
+			/*删除移动目标块 */ 
+			while (NandFlash_BlockErase(for_block_move) == FAIL)
+			bad_block_replacement_for_block_move_dest(&for_block_move);
+		 while (NandFlash_move_block
+				  (*phy_block_address, for_block_move, page_from, page_from,
+				   buf) == FAIL)
+			
+		{
+			
+			do
+			{
+				bad_block_replacement_for_block_move_dest(&for_block_move);
+			}
+			while (NandFlash_BlockErase(for_block_move) == FAIL);
+		}
+		 
+			/*再移回来 */ 
+			while (NandFlash_BlockErase(*phy_block_address) == FAIL)
+			bad_block_replacement(blk_address, phy_block_address);
+		while (NandFlash_move_block_exclusive_page
+				(for_block_move, *phy_block_address, page_from, page_from,
+				 buf) == FAIL)
+			
+		{
+			
+			do
+			{
+				bad_block_replacement(blk_address, phy_block_address);
+			}
+			while (NandFlash_BlockErase(*phy_block_address) == FAIL);
+		 }
+	 }
+	
+		//      printf("write over");
+//scanf("%c",&a);
+}
+
+ 
+/*
+===============================================================================
+函数 
+移动一个物理块，并把page_from 到 page_to分成0XFF
+入口: 
+出口：SUCC
+============================================================================
+*/ 
+	Move_Block(u32 * phy_block_address, u32 blk_address, u32 page_from,
+		   u32 page_to) 
+{
+	
+		/*删除移动目标块 */ 
+		while (NandFlash_BlockErase(for_block_move) == FAIL)
+		bad_block_replacement_for_block_move_dest(&for_block_move);
+	
+		/*把块移动到移动目标块 */ 
+		while (NandFlash_move_block_exclusive_page
+			   (*phy_block_address, for_block_move, page_from, page_to,
+				buf) == FAIL)
+		
+	{
+		
+		do
+		{
+			bad_block_replacement_for_block_move_dest(&for_block_move);
+		}
+		while (NandFlash_BlockErase(for_block_move) == FAIL);
+	 }
+	
+		/*再移回来 */ 
+		/*删除移动目标块 */ 
+		while (NandFlash_BlockErase(*phy_block_address) == FAIL)
+		bad_block_replacement(blk_address, phy_block_address);
+	while (NandFlash_move_block_exclusive_page
+			(for_block_move, *phy_block_address, page_from, page_to,
+			 buf) == FAIL)
+		
+	{
+		
+		do
+		{
+			bad_block_replacement(blk_address, phy_block_address);
+		}
+		while (NandFlash_BlockErase(*phy_block_address) == FAIL);
+	 }
+}
+
+ 
+/*
+===============================================================================
+函数 
+在预分配的扇区上写
+入口: 
+出口：SUCC
+===============================================================================
+*/ 
+	write_sectors(u32 sector_address, u8 * buffer, u32 sector_number,
+			  u8 last_sector) 
+{
+	u32 phy_blk_address, i, page, t, x, j;
+	u8 a, last_page = 0;
+	
+//  printf("sector_address = %d",sector_address);
+		Convert_LBA_to_PBA(Blocks_Reserved + sector_address / 256,
+						   &phy_blk_address);
+	 i = ((sector_address % 256) % 4);
+	page = (sector_address % 256) / 4;
+	t = ((sector_address % 256) % 4);
+	 
+		// printf("phy_block_address 222222=%d  page_address 2222222222 =%d page = %d",phy_blk_address,(sector_address % 256)/4,page);
+		//printf("xxxxxxxxxxxi = %d",i);
+		//scanf("%c",&a);
+		if ((last_block_address) == (Blocks_Reserved + sector_address / 256)
+			&& last_page_ID == page)
+		
+	{
+		if (last_page_EN)
+			
+		{
+			last_page = 1;
+			
+				// //printf("ggggggggggggggggg  ");
+				for (x = 0; x < (512); x++)
+				buff[t * 512 + x] = buffer[x];
+			yaffs_ECCCalculate(buffer, buff + 2048 + i * 6);
+			yaffs_ECCCalculate(buffer + 256, buff + 2048 + 3 + i * 6);
+		}
+		
+		else
+			
+		{						//printf("fffffffffffffff ");
+			for (x = 0; x < (512); x++)
+				first_buff[t * 512 + x] = buffer[x];
+			yaffs_ECCCalculate(buffer, first_buff + 2048 + i * 6);
+			yaffs_ECCCalculate(buffer + 256, first_buff + 2048 + 3 + i * 6);
+		}
+	}
+	
+	else
+		
+	{							////printf("eeeeeeeeeeee ");
+		for (x = 0; x < (512); x++)
+			first_buff[t * 512 + x] = buffer[x];
+		yaffs_ECCCalculate(buffer, first_buff + 2048 + i * 6);
+		yaffs_ECCCalculate(buffer + 256, first_buff + 2048 + 3 + i * 6);
+	}
+	 if (last_sector)
+		
+	{
+		if (last_page_EN && last_page == 1)
+			
+		{						//printf("ccccccccccccccccc  ");
+			Write_Physical_Page(&phy_blk_address, page,
+								 Blocks_Reserved + sector_address / 256, buff);
+		}
+		
+		else
+			
+		{						//printf("dddddddddddddddddd  ");
+			Write_Physical_Page(&phy_blk_address, page,
+								Blocks_Reserved + sector_address / 256,
+								first_buff);
+		}
+		return;
+	 }
+	i++;
+	
+		//printf("i = %d i ===============4",i);
+		if (i == 4)
+		
+	{
+		if (last_page)
+			
+		{						//printf("eeeeeeeeeeeee  ");
+			Write_Physical_Page(&phy_blk_address, page,
+								Blocks_Reserved + sector_address / 256, buff);
+			return;
+		}
+		
+		else
+			
+		{						//printf("ffffffffff  ");
+			Write_Physical_Page(&phy_blk_address, page,
+								Blocks_Reserved + sector_address / 256,
+								first_buff);
+		}
+		 i = 0;
+		first_page_ID++;
+		if (first_page_ID == 64)
+			
+		{
+			first_page_ID = 0;
+			first_block_address++;
+			Convert_LBA_to_PBA(first_block_address, &phy_blk_address);
+			first_page_block = phy_blk_address;
+		}
+	}
+}
+
+ 
+/*
+===============================================================================
+函数 
+继续写一个扇区，在预分配的扇区上写
+入口: 
+出口：SUCC
+===============================================================================
+*/ 
+	continue_write_sector(u32 sector_address, u8 * buffer, u8 last_sector) 
+{
+	if (last_sector)
+		
+	{
+		write_sectors(sector_address, buffer, 1, 1);
+		last_page_EN = 0;
+		first_page_EN = 0;
+		last_page_block = 0xffffffff;
+		last_page_ID = 0xffffffff;
+		last_block_address = 0xffffffff;
+	}
+	
+	else
+		
+	{
+		write_sectors(sector_address, buffer, 1, 0);
+	}
+ }
+
+
+/*
+===============================================================================
+函数 
+只写一个扇区，不做预分配
+入口: 
+出口：SUCC
+===============================================================================
+*/ 
+	write_only_one_sector(u32 sector_address, u8 * buffer) 
+{
+	u32 phy_block_address, blk_address;
+	u32 x, offset, j, y, z, k, t, e;
+	u32 page_from, page_to;
+	u8 ecc[3], a;
+	u8 sector_number;
+	sector_number = 1;
+	 Convert_LBA_to_PBA(Blocks_Reserved + sector_address / 256,
+						  &phy_block_address);
+	blk_address = Blocks_Reserved + sector_address / 256;
+	 
+		//printf("phy_block_address 222222=%d  page_address 2222222222 =%d",phy_block_address,(sector_address % 256)/4);
+		//printf("xxxxxxxxxxxi = %d",i);
+		/*计算块内页范围 */ 
+		page_from = (sector_address % 256) / 4;
+	NandFlash_PageRead(phy_block_address, page_from, buf);
+	
+		//for(i = 0;i<2112;i++)
+		// //printf("0x=%d ", buf[i]);
+		Move_Block(&phy_block_address, blk_address, page_from, page_from);
+	 
+		/*先处理开始的残余页 */ 
+		z = sector_number;
+	y = sector_address;
+	  i = (y % 256) % 4;
+	j = i;
+	
+		//printf("j =%d",j);
+		for (; j < 4; j++)
+		
+	{
+		offset = j * 512;
+		
+			//printf("offset = %d",offset);
+			//scanf("c",&a);
+			for (x = 0; x < 512; x++)
+			
+		{
+			buf[offset + x] = buffer[x];
+		}
+		t = ((y % 256) % 4);
+		yaffs_ECCCalculate(buf + offset, buf + 2048 + 6 * t);
+		yaffs_ECCCalculate(buf + offset + 256, buf + 2048 + 6 * t + 3);
+		y++;
+		break;
+	}
+	  
+		//printf("phy_block_address 555555555555=%d  page_address 555555555555 =%d",phy_block_address,(sector_address % 256)/4);
+		//printf("xxxxxxxxxxxi = %d",i);
+		
+		//printf("\n\n\n");
+		// for(i =0;i<2112;i++)
+		//printf("1x=%d",buf[i]);
+		//printf("\n\n\n");
+		//scanf("c",&a);
+		// printf("hhhhhhhhhhhhhh  ");
+		//      printf("aaaaaaaaaaaphy_block_address=%d",phy_block_address);
+		
+		/*写PAGE */ 
+		Write_Physical_Page(&phy_block_address, page_from, blk_address, buf);
+	  NandFlash_PageRead(phy_block_address, page_from, buf);
+	
+		//for(i = 0;i<2112;i++)
+		//printf("0x=%d ", buf[i]);
+		return (SUCC);
+}
+
+
+/*
+===============================================================================
+函数 
+第一次写扇区
+入口: 
+出口：SUCC
+===============================================================================
+*/ 
+	first_write_sector(u32 sector_address, u8 * buffer, u32 sector_number) 
+{
+	u32 phy_block_address, blk_address;
+	u32 x, offset, j, y, e, i;
+	u32 page_from, page_to;
+	
+	do
+	{
+		
+			//printf("loop!!  %d sector_number = %d",sector_address,sector_number);
+			Convert_LBA_to_PBA(Blocks_Reserved + sector_address / 256,
+							   &phy_block_address);
+		blk_address = Blocks_Reserved + sector_address / 256;
+		
+			/*计算块内页范围 */ 
+			page_from = (sector_address % 256) / 4;
+		j = sector_number;
+		y = sector_address;
+		for (x = 0; x < j; x++)
+			
+		{
+			page_to = ((y++) % 256) / 4;
+			sector_number--;
+			if (sector_number == 0)
+				break;
+			if ((y % 256) == 0)	/*已经是块尾 */
+				break;
+		 }
+		sector_number = j;
+		 if (first_page_EN == 0)
+			
+		{
+			NandFlash_PageRead(phy_block_address, page_from, first_buff);
+		 }
+		NandFlash_PageRead(phy_block_address, page_to, buff);
+		Move_Block(&phy_block_address, blk_address, page_from, page_to);
+		if (first_page_EN == 0)
+			
+		{
+			first_page_block = phy_block_address;
+			first_page_ID = page_from;
+			first_block_address = blk_address;
+		}
+		 
+			/*先处理开始的残余页 */ 
+			i = (sector_address % 256) % 4;
+		offset = i * 512;
+		if (first_page_EN == 0)
+			
+		{
+			first_page_EN = 1;
+			for (x = 0; x < 512; x++)
+				first_buff[offset + x] = buffer[x];
+			yaffs_ECCCalculate(buffer, first_buff + 2048 + 6 * i);
+			yaffs_ECCCalculate(buffer + 256, first_buff + 2048 + 6 * i + 3);
+			if (i == 3)
+				
+			{					// printf("hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh");
+				Write_Physical_Page(&phy_block_address, page_from, blk_address,
+									first_buff);
+				
+					//NandFlash_PageWrite(phy_block_address,page_from,first_buff);
+			}
+			if (sector_number >= (4 - i))
+				
+			{
+				sector_number -= 4 - i;
+				
+					/*?PAGE */ 
+					sector_address += 4 - i;
+			}
+			
+			else
+				
+			{
+				sector_address += sector_number;
+				sector_number = 0;
+			}
+		 }
+		
+		else
+			
+		{
+			i = sector_address % 256 % 4;
+			 i = 4 - i;
+			e = 0;
+			for (j = 0; j < i; j++)
+				
+			{
+				e++;
+				sector_number--;
+				if (sector_number == 0)
+					break;
+			}
+			 sector_address += e;
+		}
+		 page_from++;
+		 if (page_to >= page_from)
+			
+		{
+			 
+				/*处理整页 */ 
+				if (page_to != page_from)
+				
+			{
+				for (i = page_from; i < page_to; i++)
+					
+				{
+					page_from++;
+					sector_number -= 4;
+					sector_address += 4;
+				 }
+			}
+			 
+				/*处理尾部的残余扇区 */ 
+				//printf("sector_number = %d",sector_number);
+				i = sector_address % 256 % 4;
+			i = 4 - i;
+			e = 0;
+			for (j = 0; j < i; j++)
+				
+			{
+				e++;
+				sector_number--;
+				if (sector_number == 0)
+					break;
+			}
+			
+				/*写PAGE */ 
+				sector_address += e;
+		 }
+		 if (sector_number == 0)
+			break;
+	}
+	while (1);
+	 if ((first_page_block != phy_block_address) || 
+		   (first_page_ID != page_to))
+		
+	{							//printf("aaaaaaaaaaaa  " );
+		last_page_EN = 1;
+		last_page_block = phy_block_address;
+		last_block_address = blk_address;
+		last_page_ID = page_to;
+		
+			// for(i = 0;i<2112;i++)
+			// printf("%x ",buff[i]);
+			//NandFlash_PageRead(phy_block_address,page_to,buff);
+			//printf("page_to=%d blk_address =%d",page_to,blk_address);
+	}
+	return (SUCC);
+  }
+
+ 
+/*
+===============================================================================
+函数 
+写一个扇区，并带预分配的功能如果SECTOR_NUMBER>1的话 remain!=0
+入口: buf:数据缓冲区首地址,sector_address:flash扇区地址
+出口: SUCC
+===============================================================================
+*/ 
+	u8 Nandflash_write_one_sector(u8 * buffer, u32 sector_address, u8 disk_id,
+								  u32 sector_number, u32 remain) 
+{
+	if (remain == 0)			/*说明是最后一个扇区 */
+		
+	{
+		if (trigger == 1)
+			
+		{
+			continue_write_sector(sector_address, buffer, 1);
+			trigger = 0;		/*已经写了一些扇区 */
+		}
+		
+		else
+			
+		{
+			write_only_one_sector(sector_address, buffer);
+			
+				/*就写一个扇区 */ 
+		}
+	 }
+	
+	else
+		
+	{
+		if (trigger == 0)
+			
+		{
+			first_write_sector(sector_address, buffer, remain / 512 + 1);
+			trigger = 1;		/*第一次写扇区 */
+		}
+		
+		else
+			
+		{
+			continue_write_sector(sector_address, buffer, 0);
+			
+				/*继续写扇区 */ 
+		}
+	}
+	return (SUCC);
+ }
+
+ 
+/*
+===============================================================================
+函数 
+write flash sector
+入口: buf:数据缓冲区首地址,sector_address:flash扇区地址
+出口: SUCC
+===============================================================================
+*/ 
+	u8 Nandflash_write_flash_sector(u8 * buffer, u32 sector_address,
+									u8 disk_id, u32 sector_number) 
+{
+	u32 i;
+	u32 remain;
+	 for (i = 0; i < sector_number; i++)
+		
+	{
+		remain = (sector_number - 1 - i) * 512;
+		
+			// //printf("remain=%d",remain);
+			Nandflash_write_one_sector(buffer, sector_address + i, disk_id, 1,
+									   remain);
+		buffer += 512;
+	}
+}
+
+ static FILE *file1, *file2;
+
+/*
+===============================================================================
+函数
+Read flash sector(512bytes)
+入口：u8 *buf:缓冲区首地址,u32 sector:物理扇区号
+出口：SUCC
+===============================================================================
+*/ 
+	u8 read_flash_sector(u8 * buf, u32 sector, u8 disk_id, u32 sector_number) 
+{
+	switch (disk_id)
+		
+	{
+	case 0:
+		{
+			Nandflash_read_flash_sector(buf, sector, disk_id, sector_number);
+			break;
+		}
+	case 1:
+		{
+			fseek(file2, sector * 512, 0);
+			fread(buf, 1, 512 * sector_number, file2);
+			break;
+		}
+	default:
+		return (FAIL);
+	}
+	return (SUCC);
+}
+
+ 
+/*
+===============================================================================
+函数
+Write flash sector(512bytes)
+入口：u8 *buf:缓冲区首地址,u32 sector:物理扇区号
+出口：SUCC
+===============================================================================
+*/ 
+	u8 write_flash_sector(u8 * buf, u32 sector, u8 disk_id, u32 sector_number) 
+{
+	switch (disk_id)
+		
+	{
+	case 0:
+		{
+			Nandflash_write_flash_sector(buf, sector, disk_id, sector_number);
+			return (SUCC);
+		}
+	case 1:
+		{
+			fseek(file2, sector * 512, 0);
+			fwrite(buf, 1, 512 * sector_number, file2);
+			return (SUCC);
+		}
+	default:
+		return (FAIL);
+	}
+	return (SUCC);
+}
+
+ 
+/*
+===============================================================================
+函数
+打开模拟磁盘IMG文件fat16.img
+入口：无
+出口：无
+===============================================================================
+*/ 
+	u8 flash_management_sysinit() 
+{
+	u32 i;
+	u8 buf[512];
+	if ((file2 = fopen("fat16.img", "rb+")) == NULL)
+		
+	{							//printf("make fat16.img in progress!\n");
+		file2 = fopen("fat16.img", "wb+");
+		for (i = 0; i < 270336; i++)
+			
+		{
+			if ((i % 1000) == 0)
+				printf("#");
+			fwrite(buf, 1, 512, file2);
+		 }
+	}
+	return (SUCC);
+ }
+
+

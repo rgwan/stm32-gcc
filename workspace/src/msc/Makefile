@@ -1,7 +1,7 @@
 include $(MAKEFILE_COMMON)
 
 EXEC = msc
-
+LD_FILE = stm32_flash.ld
 # source: ./*.c ./src/*.c
 SRCS = $(wildcard ./*.c) $(wildcard ./src/*.c) $(wildcard ./usb_lib/*.c)
 OBJS = $(patsubst %.c,%.o,$(SRCS)) $(STM32_STARTUP_OBJ)
@@ -19,8 +19,8 @@ $(EXEC): $(EXEC).bin $(EXEC).hex
 $(EXEC).bin $(EXEC).hex: $(EXEC).elf
 $(EXEC).elf: $(OBJS)
 
-flash: $(EXEC)
-	stm32flash -w $(EXEC).hex -v -n 40 -b 115200 /dev/ttyUSB0 -g 0x0
+flash: all
+	stm32flash -w $(EXEC).hex -v -n 80 -b 115200 /dev/ttyUSB0 -g 0x0
 
 clean:
 	$(Q) $(RM) -v $(EXEC).elf $(EXEC).bin $(EXEC).hex $(EXEC).map
@@ -30,5 +30,5 @@ clean:
 
 check:
 ifeq ($(MAKELEVEL),0)
-	make -C ../../ PROJECT=$(EXEC)
+	make -C ../../ PROJECT=$(EXEC) LD_FILE="$(LD_FILE)"
 endif

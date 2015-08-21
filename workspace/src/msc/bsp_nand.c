@@ -1,96 +1,18 @@
-/*
-*********************************************************************************************************
-*	                                  
-*	模块名称 : NAND Flash驱动模块    
-*	文件名称 : bsp_nand.c
-*	版    本 : V1.0
-*	说    明 : 提供NAND Flash (HY27UF081G2A， 8bit 128K字节 大页)的底层接口函数。【安富莱原创，禁止转载】
-*	修改记录 :
-*		版本号  日期       作者    说明
-*		v1.0    2011-05-25 armfly  ST固件库 V3.5.0版本。
-*
-*	Copyright (C), 2010-2011, 安富莱电子 www.armfly.com
-*
-*********************************************************************************************************
-*/
 #include "string.h"
 #include "stdio.h"
 #include "bsp_nand.h"
 #include "user_uart.h"
 /*
-	如果在IAR或KEIL的编辑器中阅读，请将编辑器的字体设置为新宋体（9号/五号），缩进的TAB设置为4。
-	否则，方框处出现不对齐的问题。
-
-	【待完善的地方】
-	（1）在操作NAND Flash时，如下语句是一个死循环。如果硬件出现异常，将导致软件死机
- 		while( GPIO_ReadInputDataBit(GPIOG, GPIO_Pin_6) == 0 )
- 		
- 	（2）没有增加ECC校验功能。ECC可以检查1个或2个bit错误，如果只有1个bit错误，则可以修复这个bit。如果
- 		多余2个bit错误，则可能检测不到。
- 		
- 	（3）正常写文件操作时，会导致重建LUT。目前，重建LUT的代码执行效率还不够高，有待完善。
-
-	【硬件说明】
-	安富莱STM32F103ZE-EK开发板配置的NAND Flahs为海力士的HY27UF081G2A 
-	（1）NAND Flash的片选信号连接到CPU的FSMC_NCE2，这决定了NAND Flash的地址空间为 0x70000000（见CPU的数据
-		手册的FSMC章节)
-	（2）有FSMC总线上有多个总线设备（如TFT、SRAM、CH374T、NOR），因此必须确保其他总线设备的片选处于禁止
-		状态，否则将出现总线冲突问题 （参见本文件初始化FSMC GPIO的函数）
-
-
-	【NAND Flash 结构定义】
-     备用区有16x4字节，每page 1024字节，每512字节一个扇区，每个扇区对应16自己的备用区：
-
-	 每个PAGE的逻辑结构，前面512Bx4是主数据区，后面16Bx4是备用区
-	┌──────┐┌──────┐┌──────┐┌──────┐┌──────┐┌──────┐┌──────┐┌──────┐
-	│ Main area  ││ Main area  ││ Main area  ││Main area   ││ Spare area ││ Spare area ││ Spare area ││Spare area  │
-	│            ││            ││            ││            ││            ││            ││            ││            │
-	│   512B     ││    512B    ││    512B    ││    512B    ││    16B     ││     16B    ││     16B    ││    512B    │
-	└──────┘└──────┘└──────┘└──────┘└──────┘└──────┘└──────┘└──────┘
-	
-	 每16B的备用区的逻辑结构如下:(三星推荐标准）
-	┌───┐┌───┐┌──┐┌──┐┌──┐┌───┐┌───┐┌───┐┌──┐┌──┐┌──┐┌──┐┌───┐┌───┐┌───┐┌───┐┌───┐
-	│  BI  ││RESER ││LSN0││LSN1││LSN2││RESER ││RESER ││RESER ││ECC0││ECC1││ECC2││ECC0││S-ECC1││S-ECC0││RESER ││RESER ││RESER │
-	│      ││ VED  ││    ││    ││    ││ VED  ││ VED  ││ VED  ││    ││    ││    ││    ││      ││      ││ VED  ││ VED  ││ VED  │
-	└───┘└───┘└──┘└──┘└──┘└───┘└───┘└───┘└──┘└──┘└──┘└──┘└───┘└───┘└───┘└───┘└───┘
-	
-	K9F1G08U0A 和 HY27UF081G2A 是兼容的。芯片出厂时，厂商保证芯片的第1个块是好块。如果是坏块，则在该块的第1个PAGE的第1个字节
-	或者第2个PAGE（当第1个PAGE坏了无法标记为0xFF时）的第1个字节写入非0xFF值。坏块标记值是随机的，软件直接判断是否等于0xFF即可。
-	
-	注意：网上有些资料说NAND Flash厂商的默认做法是将坏块标记定在第1个PAGE的第6个字节处。这个说法是错误。坏块标记在第6个字节仅针对部分小扇区（512字节）的NAND Flash
-	并不是所有的NAND Flash都是这个标准。大家在更换NAND Flash时，无比仔细阅读芯片的数据手册。
-	
-
-	为了便于在NAND Flash 上移植Fat文件系统，我们对16B的备用区采用以下分配方案:
-	┌──┐┌──┐┌──┐┌──┐┌──┐┌──┐┌──┐┌──┐┌──┐┌──┐┌───┐┌───┐┌──┐┌──┐┌──┐┌──┐
-	│ BI ││USED││LBN0││LBN1││ECC0││ECC1││ECC2││ECC3││ECC4││ECC5││S-ECC1││S-ECC0││RSVD││RSVD││RSVD││RSVD│
-	│    ││    ││    ││    ││    ││    ││    ││    ││    ││    ││      ││      ││    ││    ││    ││    │
-	└──┘└──┘└──┘└──┘└──┘└──┘└──┘└──┘└──┘└──┘└───┘└───┘└──┘└──┘└──┘└──┘
-    - BI : 坏块标志(Bad Block Identifier)。每个BLOCK的第1个PAGE或者第2个PAGE的第1个字节指示该块是否坏块。0xFF表示好块，不是0xFF表示坏块。
-    - USED : 该块使用标志。0xFF表示空闲块；0xFE表示已用块。
-    - LBN0 LBN1 : 逻辑块号(Logic Block No) 。从0开始编码。只在每个BLOCK的第1个PAGE有效，其它PAGE该字段固定为0xFF FF
-    - ECC0 ~ ECC6 : 512B主数据区的ECC校验 （按照三星提供ECC算法，256字节对应3个字节的ECC)
-    - S-ECC1 S-ECC0 : LSN0和LSN2的ECC校验
-    - RSVD : 保留字节，Reserved
-
-	【坏块管理 & 磨损平衡】
-	(1) 内部全局数组s_usLUT[]按次序保存物理块号。用于物理块和逻辑块的地址映射。
-	(2) 格式化时，将98%的好块用于主数据存储。剩余的2%用于备用区（坏块替换）。
-	(3) 写扇区（512B)时，如果扇区内容为空，则直接写入，减少不必要的块擦除操作。有效提高NAND Flash的寿命和读写性能。
-	(4) 写扇区时，如果扇区内容不为空，则从末尾开始查找一个空闲块替换掉旧块，替换并改写数据完成后，将旧块擦除，并标注为空闲，之后重建LUT。
-	(5) 块复制时，充分利用NAND Flash硬件的Copy-Back功能，无需读源页到内存再写入目标页。这样可显著提高读写效率。
-	(6) 磨损平衡还存在缺陷，效果不好。ECC校验暂未实现。
-		
+	在内存中须建立两个表
+	* 一个LBN->PBN的映射表LUT，大小为BLOCK数量 * 2
+	* 一个坏块表BBT, 大小为BLOCK数量/8
+	* 二者皆由启动时扫描Spare区而建立
+	* 为了防止标记失败的惨剧发生，第0块作为BBT和部分系统信息的存储块
+	* 写入时先判断是否本扇区为空，为空则写入，非空则在Flash尾端寻找空闲块后搬移数据再写入。
+	* 写入完毕后擦除源扇区，并交换两个扇区的逻辑块地址。如果被替代的扇区不存在逻辑块地址，则把地址写入0xffff
+	* 然后更改内存中的LUT。写入时若遇到坏块则尝试10次，若10次均失败则返回错误。
+	* 若坏块数量大于空闲区数量，则锁死写函数
 */
-
-/* 定义NAND Flash的物理地址。这个是有硬件决定的 */
-#define Bank2_NAND_ADDR    ((uint32_t)0x70000000)
-#define Bank_NAND_ADDR     Bank2_NAND_ADDR 
-
-/* 定义操作NAND Flash用到3个宏 */
-#define NAND_CMD_AREA		*(__IO uint8_t *)(Bank_NAND_ADDR | CMD_AREA)
-#define NAND_ADDR_AREA		*(__IO uint8_t *)(Bank_NAND_ADDR | ADDR_AREA)
-#define NAND_DATA_AREA		*(__IO uint8_t *)(Bank_NAND_ADDR | DATA_AREA)
 
 /* 逻辑块号映射表。好块总数的2%用于备份区，因此数组维数低于1024。 LUT = Look Up Table */
 static uint16_t s_usLUT[NAND_BLOCK_COUNT]; 
@@ -201,7 +123,8 @@ uint32_t NAND_ReadID(void)
 
 	SPI_Readbyte(READ_ID);
 	SPI_Readbyte(DUMMY_BYTE);
-	data = (SPI_Readbyte(DUMMY_BYTE) << 24) + (SPI_Readbyte(DUMMY_BYTE) << 16);
+	data = (SPI_Readbyte(DUMMY_BYTE) << 24) + (SPI_Readbyte(DUMMY_BYTE) << 16)
+		;//+ (SPI_Readbyte(DUMMY_BYTE) << 8);
 	
 	SPI_CS_DISABLE;
 	
@@ -469,12 +392,19 @@ static uint8_t FSMC_NAND_ReadPage(uint8_t *_pBuffer, uint32_t _ulPageNo, uint16_
 */
 static uint8_t FSMC_NAND_WriteSpare(uint8_t *_pBuffer, uint32_t _ulPageNo, uint16_t _usAddrInSpare, uint16_t _usByteCount)
 {
+	uint8_t ret;
 	if (_usByteCount > NAND_SPARE_AREA_SIZE)
 	{
 		return NAND_FAIL;
 	}
 	
-	return FSMC_NAND_WritePage(_pBuffer, _ulPageNo, NAND_PAGE_SIZE + _usAddrInSpare, _usByteCount);
+	ret = FSMC_NAND_WritePage(_pBuffer, _ulPageNo, NAND_PAGE_SIZE + _usAddrInSpare, _usByteCount);
+	/*dbg("Write spare page = %d, blk = %d\r\nHexDump:\r\n", _ulPageNo, _ulPageNo / 64);
+	int i;
+	for(i = 0; i < _usByteCount; i++)
+		dbg("%02x ", _pBuffer[i]);
+	dbg("\r\n");*/
+	return ret;
 }
 
 /*
@@ -529,7 +459,7 @@ static uint8_t FSMC_NAND_WriteData(uint8_t *_pBuffer, uint32_t _ulPageNo, uint16
 	
 	return FSMC_NAND_WritePage(_pBuffer, _ulPageNo, _usAddrInPage, _usByteCount);
 }
-
+ 
 /*
 *********************************************************************************************************
 *	函 数 名: FSMC_NAND_ReadData
@@ -623,13 +553,34 @@ uint8_t NAND_Init(void)
 	int i;
 	for(i = 0; i < 1024; i++)
 		FSMC_NAND_EraseBlock(i);	
-	NAND_MarkBadBlock(972);	
+	
 	NAND_MarkBadBlock(966);		
 	NAND_MarkBadBlock(965);	
 	NAND_MarkBadBlock(964);	
+	NAND_MarkBadBlock(963);	
+	NAND_MarkBadBlock(962);	
+	NAND_MarkBadBlock(961);	
+	NAND_MarkBadBlock(960);
 	NAND_MarkBadBlock(138);			
 	NAND_MarkBadBlock(967);
 	NAND_Format(0);
+	#endif
+	#if 0
+	int i;
+	uint8_t test[4]={0x55, 0xaa, 0xa5, 0x5a};
+	FSMC_NAND_EraseBlock(8);
+	NAND_Format(0);
+	
+	/*if(FSMC_NAND_WriteSpare(test, 8*64, 0, 4))
+		dbg("Error in writing spare\r\n");	*/
+	if(FSMC_NAND_ReadSpare(test, 8*64, 0, 4))
+		dbg("Error in reading spare\r\n");
+	dbg("Test read spare \r\n");
+	for(i = 0; i < 4; i++)
+		dbg("%02x ", test[i]);
+	dbg("\r\n");
+	NAND_DispBadBlockInfo();
+	while(1);
 	#endif
 	Status = NAND_BuildLUT();	/* 建立块管理表 LUT = Look up table */
 	if(Status)
@@ -637,7 +588,7 @@ uint8_t NAND_Init(void)
 		dbg("Empty Flash, format it!\r\n");
 		NAND_Format(0);//格式化
 		dbg("Formatted\r\n");
-		NAND_DispBadBlockInfo();
+		NAND_DispBadBlockInfo(); 
 		Status = NAND_BuildLUT();
 		while(Status);//如果格不了就死在这里
 		dbg("Okay\r\n");
@@ -879,7 +830,7 @@ static uint8_t NAND_BuildLUT(void)
 				/* 如果已经登记过了，则判定为异常 */
 				if (s_usLUT[usLBN] != 0xFFFF)
 				{
-					dbg("No signed on block %d\r\n", i);
+					dbg("No signed on block %d, LBN = %d\r\n", i, usLBN);
 					return NAND_FAIL;
 				}
 
@@ -1212,6 +1163,7 @@ static void NAND_MarkBadBlock(uint32_t _ulBlockNo)
 uint8_t NAND_Format(uint8_t mode)
 {
 	uint16_t i, n;
+	uint8_t buffer[4]={0xff, 0xff, 0, 0};
 	uint16_t usGoodBlockCount;
 
 	/* 擦除每个块 */
@@ -1261,7 +1213,16 @@ uint8_t NAND_Format(uint8_t mode)
 		if (!NAND_IsBadBlock(i))
 		{
 			/* 如果是好块，则在该块的第1个PAGE的LBN0 LBN1处写入n值 (前面已经执行了块擦除） */
-			FSMC_NAND_WriteSpare((uint8_t *)&n, i * NAND_BLOCK_SIZE, LBN0_OFFSET, 2);		
+			buffer[LBN0_OFFSET] = n & 0xff;
+			buffer[LBN1_OFFSET] = n >> 8;
+			if(FSMC_NAND_WriteSpare(buffer, i * NAND_BLOCK_SIZE, 0, 4)!=NAND_OK)
+			{
+				dbg("Bad block in %d\r\n", i);
+				FSMC_NAND_EraseBlock(i);
+				NAND_MarkBadBlock(i);
+				continue;
+			}
+			dbg("Write LBN %d to PBN %d\r\n",n, i);
 			n++;
 
 			/* 计算并写入每个扇区的ECC值 （暂时未作）*/
@@ -1330,6 +1291,10 @@ void NAND_DispBadBlockInfo(void)
 	{
 		printf("GD5F1GQ4\r\n  1024 Blocks, 64 pages per block, 2048 + 64 bytes per page\r\n");		
 	}
+	else if (id == GD5F2GQ4)
+	{
+		printf("GD5F2GQ4\r\n  2048 Blocks, 64 pages per block, 2048 + 64 bytes per page\r\n");		
+	}
 	else
 	{
 		printf("unkonow\r\n");
@@ -1360,5 +1325,5 @@ void NAND_DispBadBlockInfo(void)
 			printf("\r\n");
 		}
 	}
-	printf("\nBad Block Count = %d\r\n",(int) n);
+	printf("\r\nBad Block Count = %d\r\n",(int) n);
 }

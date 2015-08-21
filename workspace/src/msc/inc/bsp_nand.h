@@ -62,6 +62,8 @@ typedef enum
 #define K9F1G08U0A		0xECF18015
 #define K9F1G08U0B		0xECF10095
 #define GD5F1GQ4		0xC8F10000
+#define GD5F2GQ4		0xC8D20000
+#define GD5F4GQ4		0xC8F40000
 
 /* Exported constants --------------------------------------------------------*/
 /* NAND Area definition  for STM3210E-EVAL Board RevD */
@@ -154,6 +156,43 @@ typedef enum
 
 	#define SPI_WP_ENABLE GPIO_ResetBits(GPIOA, GPIO_Pin_2)
 	#define SPI_WP_DISABLE GPIO_SetBits(GPIOA, GPIO_Pin_2)
+#elif NAND_TYPE == GD5F2GQ4
+	#define NAND_PAGE_SIZE             ((uint16_t)0x0800) /* 2 * 1024 bytes per page w/o Spare Area */
+	#define NAND_BLOCK_SIZE            ((uint16_t)0x0040) /* 64 pages per block */
+	#define NAND_ZONE_SIZE             ((uint16_t)2040) /* 1024 Block per zone */
+	#define NAND_SPARE_AREA_SIZE       ((uint16_t)0x0040) /* last 64 bytes as spare area */
+	#define NAND_MAX_ZONE              ((uint16_t)0x0001) /* 1 zones of 1024 block */
+	#define MAX_PHY_BLOCKS_PER_ZONE  2040	/* 每个区最大物理块号 */
+	#define MAX_LOG_BLOCKS_PER_ZONE  2020	/* 每个区最大逻辑块号 */
+	
+	#define NAND_BLOCK_COUNT			2040 /* 块个数 */
+	#define NAND_PAGE_TOTAL_SIZE		(NAND_PAGE_SIZE + NAND_SPARE_AREA_SIZE)	/* 页面总大小 */
+	#define DUMMY_BYTE                      0x00
+	#define WRITE_ENABLE                    0x06
+	#define WRITE_DISABLE                   0x04
+	#define GET_FEATURES                    0x0f
+	#define SET_FEATURES                    0x1f
+	#define PAGE_READTOCACHE                0x13
+	#define READ_FROM_CACHE                 0x03
+	#define READ_ID                         0x9f
+	#define PROGRAM_LOAD                    0x02
+	#define PROGRAM_EXEXUTE                 0x10
+	#define PROGRAM_LOAD_RANDOM_DATA        0x84
+	#define BLOCK_ERASE                     0xd8
+
+	#define PROTECTION_REG					0xa0
+	#define FEATURE_REG						0xb0
+	#define STATUS_REG						0xc0
+	#define STATUS2_REG						0xd0
+	#define SPI_CS_ENABLE GPIO_ResetBits(GPIOA, GPIO_Pin_4)
+	#define SPI_CS_DISABLE GPIO_SetBits(GPIOA, GPIO_Pin_4)
+
+	#define SPI_HOLD_ENABLE GPIO_ResetBits(GPIOA, GPIO_Pin_3)
+	#define SPI_HOLD_DISABLE GPIO_SetBits(GPIOA, GPIO_Pin_3)
+
+	#define SPI_WP_ENABLE GPIO_ResetBits(GPIOA, GPIO_Pin_2)
+	#define SPI_WP_DISABLE GPIO_SetBits(GPIOA, GPIO_Pin_2)
+
 #else
 	#define NAND_PAGE_SIZE             ((uint16_t)0x0200) /* 512 bytes per page w/o Spare Area */
 	#define NAND_BLOCK_SIZE            ((uint16_t)0x0020) /* 32x512 bytes pages per block */
