@@ -12,6 +12,13 @@
 	* 写入完毕后擦除源扇区，并交换两个扇区的逻辑块地址。如果被替代的扇区不存在逻辑块地址，则把地址写入0xffff
 	* 然后更改内存中的LUT。写入时若遇到坏块则尝试10次，若10次均失败则返回错误。
 	* 若坏块数量大于空闲区数量，则锁死写函数
+	* 写函数流程
+	* 若空->写入->End
+	* 非空 OR 错误 ->寻找空闲块->搬移数据->写入->搬移数据->交换块号->擦除原数据
+	* 							错误：继续尝试，标记坏块
+	* 读函数流程
+	* 查表->读取->End
+	* 		错误->返回错误，搬移数据，标记坏块 
 */
 
 /* 逻辑块号映射表。好块总数的2%用于备份区，因此数组维数低于1024。 LUT = Look Up Table */
@@ -208,6 +215,8 @@ static uint8_t FSMC_NAND_PageCopyBackEx(uint32_t _ulSrcPageNo, uint32_t _ulTarPa
 	int i;
 	uint8_t wrap;
 	// Read it to cache
+	dbg("copy src blk = %d, page = %d, dest blk = %d, page = %n", _ulSrcPageNo / 64,
+	_ulSrcPageNo % 64, _ulTarPageNo / 64, _ulTarPageNo %64);
 	SPI_CS_ENABLE;
 	SPI_Readbyte(PAGE_READTOCACHE);
 	SPI_Readbyte(DUMMY_BYTE);
@@ -271,7 +280,8 @@ static uint8_t FSMC_NAND_PageCopyBackEx(uint32_t _ulSrcPageNo, uint32_t _ulTarPa
 static uint8_t FSMC_NAND_WritePage(uint8_t *_pBuffer, uint32_t _ulPageNo, uint16_t _usAddrInPage, uint16_t _usByteCount)
 {
 	uint16_t i;
-		
+	dbg("write blk = %d, page = %d, offset = %d\r\n", _ulPageNo / 64,
+	_ulPageNo %64, _usAddrInPage);
 	SPI_CS_ENABLE;
 	SPI_Readbyte(PROGRAM_LOAD);
 	SPI_Readbyte(_usAddrInPage >> 8);
@@ -631,7 +641,7 @@ uint8_t NAND_WriteToNewBlock(uint32_t _ulPhyPageNo, uint8_t *_pWriteBuf, uint16_
 		{
 			return NAND_FAIL;	/* 查找空闲块失败 */
 		}
-		
+		dbg("Trying to move data from %d block to %d block\r\n", _ulPhyPageNo / 64, usNewBlock);
 		/* 使用page-copy功能，将当前块（usPBN）的数据全部搬移到新块（usNewBlock） */
 		for (i = 0; i < NAND_BLOCK_SIZE; i++)
 		{
@@ -661,6 +671,7 @@ uint8_t NAND_WriteToNewBlock(uint32_t _ulPhyPageNo, uint8_t *_pWriteBuf, uint16_
 			}
 		}
 		/* 目标块更新成功 */
+		dbg("Move completed\r\n");
 		if (i == NAND_BLOCK_SIZE)
 		{
 			/* 标记新块为已用块 */
