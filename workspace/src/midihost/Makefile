@@ -2,7 +2,7 @@ include $(MAKEFILE_COMMON)
 
 EXEC = midihost
 
-LD_FILE = stm32_flash.ld
+LD_FILE = stm32f105.ld
 
 # source: ./*.c ./src/*.c
 SRCS = $(wildcard ./*.c) $(wildcard ./src/*.c)
@@ -28,7 +28,7 @@ clean:
 	$(Q) $(RM) -v $(EXEC).elf $(EXEC).bin $(EXEC).hex $(EXEC).map
 	$(Q) $(RM) -v $(OBJS) $(STM32_STARTUP_OBJ)
 
-.PHONY: clean distclean download lib all check project
+.PHONY: clean distclean flash lib all check project
 
 check:
 ifeq ($(MAKELEVEL),0)

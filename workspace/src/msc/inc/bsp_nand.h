@@ -205,9 +205,9 @@ typedef enum
 #define NAND_USED_BLOCK_FLAG		0xF0	/* 块内第1个page备用区的第2个字节写入非0xFF数据表示坏块 */
 
 #define BI_OFFSET				0		/* 块内第1个page备用区的第1个字节是坏块标志 */
-#define USED_OFFSET				1		/* 块内第1个page备用区的第4个字节是已用标志 */
-#define LBN0_OFFSET				2	/* 块内第1个page备用区的第5个字节表示逻辑块号低8bit */
-#define LBN1_OFFSET				3		/* 块内第1个page备用区的第6个字节表示逻辑块号高8bit */
+#define USED_OFFSET				1		/* 块内第1个page备用区的第2个字节是已用标志 */
+#define LBN0_OFFSET				2	/* 块内第1个page备用区的第3个字节表示逻辑块号低8bit */
+#define LBN1_OFFSET				3		/* 块内第1个page备用区的第4个字节表示逻辑块号高8bit */
 #define VALID_SPARE_SIZE		4		/* 实际使用的备用区大小,用于函数内部声明数据缓冲区大小 */
 
 /* FSMC NAND memory address computation */
@@ -273,7 +273,7 @@ typedef enum {
 uint8_t NAND_Init(void);
 uint8_t NAND_Write(uint32_t _ulMemAddr, uint32_t *_pWriteBuf, uint16_t _usSize);
 uint8_t NAND_Read(uint32_t _ulMemAddr, uint32_t *_pReadBuf, uint16_t _usSize);
-uint8_t NAND_Format(uint8_t mode);
+uint8_t NAND_Format();
 void NAND_DispBadBlockInfo(void);
 uint8_t NAND_ScanBlock(uint32_t _ulPageNo);
 uint32_t NAND_FormatCapacity(void);
